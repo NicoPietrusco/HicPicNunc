@@ -11,7 +11,7 @@ import shutil
 import time
 import uuid
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -75,7 +75,7 @@ def get_job_dir(job_id: str) -> Path | None:
 
 
 @contextmanager
-def staged_file(job_id: str, index: int, filename: str) -> Iterator[Path]:
+def staged_file(job_id: str, index: int, filename: str) -> Generator[Path, None, None]:
     """Path for an incoming file while it is processed; the file is deleted afterwards."""
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     path = settings.upload_dir / f"{job_id}_{index}_{filename}"
