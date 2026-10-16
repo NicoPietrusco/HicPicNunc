@@ -70,6 +70,64 @@ function pickerImageProxySrc(baseUrl) {
     return `/api/picker-image?url=${encodeURIComponent(u)}`;
 }
 
+function appendMetaItem(meta, icon, value, title = '') {
+    const row = document.createElement('div');
+    row.className = 'meta-item';
+    const iconElement = document.createElement('span');
+    iconElement.textContent = icon;
+    const valueElement = document.createElement('span');
+    valueElement.textContent = value;
+    if (title) valueElement.title = title;
+    row.append(iconElement, valueElement);
+    meta.appendChild(row);
+}
+
+function createPhotoCard(item, includeLocation = false) {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+
+    const imgSrc = pickerImageProxySrc(item.baseUrl || itemToPayload(item).base_url || '');
+    if (imgSrc) {
+        const image = document.createElement('img');
+        image.src = imgSrc;
+        image.alt = '';
+        image.loading = 'lazy';
+        card.appendChild(image);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'photo-info';
+    const heading = document.createElement('h3');
+    heading.textContent = item.filename || 'Untitled';
+    heading.title = item.filename || 'Untitled';
+    info.appendChild(heading);
+
+    const meta = document.createElement('div');
+    meta.className = 'photo-meta';
+    const width = item.mediaMetadata?.width || '?';
+    const height = item.mediaMetadata?.height || '?';
+    const created = item.mediaMetadata?.creationTime
+        ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
+        : 'Unknown';
+    const mime = item.mimeType?.split('/')[1]?.toUpperCase() || 'Unknown';
+    appendMetaItem(meta, '📐', `${width} × ${height}`);
+    appendMetaItem(meta, '📅', created);
+    appendMetaItem(meta, '📄', mime);
+
+    if (includeLocation) {
+        const location = item.location || item.mediaMetadata?.location;
+        const hasLocation = location && (location.latitude || location.longitude);
+        if (hasLocation) {
+            const locationText = `${location.latitude?.toFixed(6)}, ${location.longitude?.toFixed(6)}`;
+            appendMetaItem(meta, '📍', locationText, 'Latitude, Longitude');
+        }
+    }
+
+    info.appendChild(meta);
+    card.appendChild(info);
+    return card;
+}
+
 function setLoadedPickerItems(items) {
     loadedPickerItems = (items || [])
         .map(itemToPayload)
@@ -349,57 +407,7 @@ function displayPhotos(items) {
     const grid = document.createElement('div');
     grid.className = 'photos-grid';
 
-    items.forEach((item) => {
-        const card = document.createElement('div');
-        card.className = 'photo-card';
-
-        const baseUrl = item.baseUrl || itemToPayload(item).base_url || '';
-        const imgSrc = pickerImageProxySrc(baseUrl);
-        const width = item.mediaMetadata?.width || '?';
-        const height = item.mediaMetadata?.height || '?';
-        const created = item.mediaMetadata?.creationTime
-            ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
-            : 'Unknown';
-
-        const location = item.location || item.mediaMetadata?.location;
-        const hasLocation = location && (location.latitude || location.longitude);
-        const locationText = hasLocation
-            ? `${location.latitude?.toFixed(6)}, ${location.longitude?.toFixed(6)}`
-            : null;
-
-        card.innerHTML = `
-            ${imgSrc ? `<img src="${imgSrc}" alt="" loading="lazy">` : ''}
-            <div class="photo-info">
-                <h3 title="${item.filename || 'Untitled'}">${item.filename || 'Untitled'}</h3>
-                <div class="photo-meta">
-                    <div class="meta-item">
-                        <span>📐</span>
-                        <span>${width} × ${height}</span>
-                    </div>
-                    <div class="meta-item">
-                        <span>📅</span>
-                        <span>${created}</span>
-                    </div>
-                    <div class="meta-item">
-                        <span>📄</span>
-                        <span>${item.mimeType?.split('/')[1]?.toUpperCase() || 'Unknown'}</span>
-                    </div>
-                    ${
-                        locationText
-                            ? `
-                    <div class="meta-item">
-                        <span>📍</span>
-                        <span title="Latitude, Longitude">${locationText}</span>
-                    </div>
-                    `
-                            : ''
-                    }
-                </div>
-            </div>
-        `;
-
-        grid.appendChild(card);
-    });
+    items.forEach((item) => grid.appendChild(createPhotoCard(item, true)));
 
     container.innerHTML = '';
     container.appendChild(grid);
@@ -471,41 +479,7 @@ async function loadSelectedPhotos() {
         const grid = document.createElement('div');
         grid.className = 'photos-grid';
 
-        data.items.forEach((item) => {
-            const card = document.createElement('div');
-            card.className = 'photo-card';
-
-            const baseUrl = item.baseUrl || '';
-            const imgSrc = pickerImageProxySrc(baseUrl);
-            const width = item.mediaMetadata?.width || '?';
-            const height = item.mediaMetadata?.height || '?';
-            const created = item.mediaMetadata?.creationTime
-                ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
-                : 'Unknown';
-
-            card.innerHTML = `
-                ${imgSrc ? `<img src="${imgSrc}" alt="" loading="lazy">` : ''}
-                <div class="photo-info">
-                    <h3 title="${item.filename || 'Untitled'}">${item.filename || 'Untitled'}</h3>
-                    <div class="photo-meta">
-                        <div class="meta-item">
-                            <span>📐</span>
-                            <span>${width} × ${height}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span>📅</span>
-                            <span>${created}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span>📄</span>
-                            <span>${item.mimeType?.split('/')[1]?.toUpperCase() || 'Unknown'}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            grid.appendChild(card);
-        });
+        data.items.forEach((item) => grid.appendChild(createPhotoCard(item)));
 
         container.innerHTML = '';
         container.appendChild(grid);
@@ -513,12 +487,18 @@ async function loadSelectedPhotos() {
         showStatus(`Loaded ${describeSelection(data.items)}.`, 'success');
     } catch (error) {
         setLoadedPickerItems([]);
-        document.getElementById('photos-content').innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">⚠️</div>
-                <h3>Error</h3>
-                <p>${error.message}</p>
-            </div>`;
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        const icon = document.createElement('div');
+        icon.className = 'empty-state-icon';
+        icon.textContent = '⚠️';
+        const heading = document.createElement('h3');
+        heading.textContent = 'Error';
+        const message = document.createElement('p');
+        message.textContent = error.message;
+        emptyState.append(icon, heading, message);
+        const container = document.getElementById('photos-content');
+        container.replaceChildren(emptyState);
     }
 }
 
