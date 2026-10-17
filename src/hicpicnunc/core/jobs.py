@@ -16,10 +16,9 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from werkzeug.utils import secure_filename
-
 from ..log import get_logger
 from ..settings import settings
+from .filenames import is_safe_filename
 
 logger = get_logger(__name__)
 
@@ -76,9 +75,13 @@ def get_job_dir(job_id: str) -> Path | None:
 
 @contextmanager
 def staged_file(job_id: str, index: int, filename: str) -> Generator[Path, None, None]:
-    """Path for an incoming file while it is processed; the file is deleted afterwards."""
+    """
+    Path for an incoming file while it is processed; the file is deleted afterwards.
+
+    Only filename's extension is kept: the output name is chosen separately.
+    """
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    path = settings.upload_dir / f"{job_id}_{index}_{filename}"
+    path = settings.upload_dir / f"{job_id}_{index}{Path(filename).suffix}"
     try:
         yield path
     finally:
@@ -132,7 +135,7 @@ def resolve_job_file(job_dir: Path, rel: str) -> Path | None:
     if not rel or "\0" in rel:
         return None
     parts = rel.split("/")
-    if any(not p or p in (".", "..") or secure_filename(p) != p for p in parts):
+    if any(p in (".", "..") or not is_safe_filename(p) for p in parts):
         return None
     try:
         root = job_dir.resolve()
