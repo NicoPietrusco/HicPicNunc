@@ -50,7 +50,7 @@ def test_staged_file_is_outside_the_job_and_deleted_afterwards(data_dir: Path) -
 
     with staged_file(job_id, 3, "IMG.jpg") as path:
         path.write_bytes(b"x")
-        assert path.name == f"{job_id}_3_IMG.jpg"
+        assert path.name == f"{job_id}_3.jpg"  # the output name is chosen separately
         assert job_dir not in path.parents
 
     assert not path.exists()
@@ -95,7 +95,9 @@ def test_retention_period_comes_from_the_environment(data_dir: Path, monkeypatch
     assert prune_expired_jobs() == 1
 
 
-@pytest.mark.parametrize("rel", ["../secret.txt", "a/../../b", "a\0b", "", "a b.jpg"])
+@pytest.mark.parametrize(
+    "rel", ["../secret.txt", "a/../../b", "a\0b", "", "a:b.jpg", "CON.jpg", ".hidden"]
+)
 def test_resolve_job_file_rejects_escapes_and_unsafe_names(tmp_path: Path, rel: str) -> None:
     assert resolve_job_file(tmp_path, rel) is None
 
@@ -104,6 +106,9 @@ def test_resolve_job_file_accepts_nested_paths(tmp_path: Path) -> None:
     root = tmp_path.resolve()
 
     assert resolve_job_file(tmp_path, "trip/day1/IMG.jpg") == root / "trip/day1/IMG.jpg"
+    assert (
+        resolve_job_file(tmp_path, "Perù 2019/東京タワー.jpg") == root / "Perù 2019/東京タワー.jpg"
+    )
     assert resolve_job_file(tmp_path, "/etc/passwd") == root / "etc/passwd"  # stays inside
 
 
@@ -149,6 +154,18 @@ def test_zip_streams_large_jobs_in_bounded_chunks(tmp_path: Path) -> None:
     archive = zipfile.ZipFile(io.BytesIO(first + b"".join(rest)))
     assert sorted(archive.namelist()) == ["VID_0.mp4", "VID_1.mp4", "VID_2.mp4"]
     assert archive.testzip() is None
+
+
+def test_zip_with_non_ascii_names_extracts_unchanged(tmp_path: Path) -> None:
+    job, out = tmp_path / "job", tmp_path / "out"
+    names = ["Perù 2019 – Machu Picchu.jpg", "東京タワー.jpg", "Vacanze 2019/Festa 🎉.jpg"]
+    for name in names:
+        (job / name).parent.mkdir(parents=True, exist_ok=True)
+        (job / name).write_bytes(b"x")
+
+    zipfile.ZipFile(io.BytesIO(b"".join(iter_job_zip(job)))).extractall(out)
+
+    assert sorted(p.relative_to(out).as_posix() for p in out.rglob("*.jpg")) == sorted(names)
 
 
 def test_empty_job_zip_is_valid(tmp_path: Path) -> None:

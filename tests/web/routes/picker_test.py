@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -133,7 +135,7 @@ def test_batch_exports_every_item_into_one_job(
     assert body["ok"] and body["processed"] == 2
     assert body["errors"] == [{"index": 2, "error": "invalid item"}]
     page = signed_in_client.get(body["job_url"]).get_data(as_text=True)
-    assert "a_exif.jpg" in page and "b_exif.jpg" in page
+    assert ">a.jpg<" in page and ">b.jpg<" in page
     assert list((data_dir / "data" / "uploads").iterdir()) == []  # staged downloads removed
 
 
@@ -158,8 +160,51 @@ def test_chunks_are_added_to_the_same_job(signed_in_client, monkeypatch, make_jp
     )
 
     assert second["job_id"] == first["job_id"]
-    # Same filenames in both chunks: the offset keeps all four outputs apart.
-    assert len(list_job_files(get_job_dir(first["job_id"]))) == 4
+    # Same filenames in both chunks: duplicates are numbered, nothing is overwritten.
+    assert list_job_files(get_job_dir(first["job_id"])) == [
+        "IMG_0 (2).jpg",
+        "IMG_0.jpg",
+        "IMG_1 (2).jpg",
+        "IMG_1.jpg",
+    ]
+
+
+def test_exports_keep_the_google_photos_names(signed_in_client, monkeypatch, make_jpeg) -> None:
+    photo = make_jpeg().read_bytes()
+    monkeypatch.setattr(picker, "download_media_bytes", lambda url, token: photo)
+    names = [
+        "IMG_20220802_165718137.jpg",
+        "Compleanno di Carlotta.jpg",
+        "Perù 2019 – Machu Picchu.jpg",
+        "東京タワー.jpg",
+        "../etc/passwd.jpg",
+        "CON.jpg",
+        "img_20220802_165718137.JPG",  # same name as the first one, ignoring case
+    ]
+    items = [{"base_url": GOOGLE_URL, "filename": n} for n in names]
+
+    body = signed_in_client.post(
+        "/api/process-google-batch", json={"items": items, "include_json": True}
+    ).get_json()
+    download = signed_in_client.get(f"/job/{body['job_id']}/download-all")
+    archive = zipfile.ZipFile(io.BytesIO(download.data))
+
+    images = [n for n in archive.namelist() if not n.endswith(".json")]
+    assert sorted(images) == sorted(
+        [
+            "IMG_20220802_165718137.jpg",
+            "Compleanno di Carlotta.jpg",
+            "Perù 2019 – Machu Picchu.jpg",
+            "東京タワー.jpg",
+            "etcpasswd.jpg",  # separators removed, never a path
+            "CON_.jpg",
+            "img_20220802_165718137 (2).JPG",
+        ]
+    )
+    # Sidecars follow their image's final name.
+    assert {f"{n}.json" for n in images} == {n for n in archive.namelist() if n.endswith(".json")}
+    # Non-ASCII entries carry the UTF-8 flag, so Windows and macOS extract them correctly.
+    assert archive.getinfo("東京タワー.jpg").flag_bits & 0x800
 
 
 def test_error_indexes_are_relative_to_the_whole_selection(signed_in_client) -> None:
