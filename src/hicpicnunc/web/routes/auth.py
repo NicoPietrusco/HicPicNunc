@@ -19,6 +19,7 @@ from ...google_photos.oauth import (
 from ...google_photos.picker import credentials_from_session_json, ensure_fresh
 from ...log import get_logger
 from ...settings import settings
+from ..i18n import t
 from ..session import clear_session, current_session, save_token, start_session
 
 logger = get_logger(__name__)
@@ -29,19 +30,16 @@ bp = Blueprint("auth", __name__)
 @bp.get("/auth")
 def sign_in():
     if not settings.google_oauth_client_secrets_path.is_file():
-        flash(
-            "Google isn’t configured yet. Add the client JSON file as credentials/client_secrets.json.",
-            "error",
-        )
+        flash(t("flash.google_not_configured"), "error")
         return redirect(url_for("home.index"))
     try:
         creds = GooglePhotosOAuth().run_local_server()
     except WSGITimeoutError:
-        flash("Sign-in timed out. Choose Sign in to try again.", "error")
+        flash(t("flash.sign_in_timed_out"), "error")
         return redirect(url_for("home.index"))
     except Exception as e:
         logger.exception("OAuth failed")
-        flash(f"Sign-in didn’t finish: {e}", "error")
+        flash(t("flash.sign_in_failed", error=e), "error")
         return redirect(url_for("home.index"))
 
     if not has_photos_scope(creds):
@@ -49,10 +47,7 @@ def sign_in():
             revoke_credentials(creds)
         except Exception as e:
             logger.warning("Could not revoke partial credentials: {}", e)
-        flash(
-            "Hic Pic Nunc needs access to Google Photos. Sign in again and tick the Google Photos permission.",
-            "error",
-        )
+        flash(t("flash.photos_permission_missing"), "error")
         return redirect(url_for("home.index"))
 
     email = extract_verified_email(creds)
@@ -61,7 +56,7 @@ def sign_in():
     save_token(creds)
     resp = redirect(url_for("home.index"))
     start_session(creds, resp, email=email)
-    flash("You're signed in. You can choose photos from Google below.", "success")
+    flash(t("flash.signed_in"), "success")
     return resp
 
 

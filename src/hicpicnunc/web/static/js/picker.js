@@ -1,4 +1,5 @@
 // Google Photos Picker — local desktop OAuth (server session); no GIS / no Bearer from the browser
+const { t, tn } = window.i18n;
 let authenticated = false;
 /** @type {{ base_url: string, filename: string, type: ?string, mime_type: ?string, create_time: ?string, processing_status: ?string }[]} */
 let loadedPickerItems = [];
@@ -25,8 +26,8 @@ function describeSelection(items) {
     const videos = items.filter((item) => item.type === 'VIDEO').length;
     const photos = items.length - videos;
     const parts = [];
-    if (photos || !videos) parts.push(`${photos} photo${photos !== 1 ? 's' : ''}`);
-    if (videos) parts.push(`${videos} video${videos !== 1 ? 's' : ''}`);
+    if (photos || !videos) parts.push(tn('js.picker.photo_count', photos));
+    if (videos) parts.push(tn('js.picker.video_count', videos));
     return parts.join(' · ');
 }
 
@@ -92,9 +93,8 @@ function warnBeforeLeaving(event) {
 }
 
 function formatRemaining(seconds) {
-    if (seconds < 60) return 'less than a minute left';
-    const minutes = Math.round(seconds / 60);
-    return `about ${minutes} minute${minutes !== 1 ? 's' : ''} left`;
+    if (seconds < 60) return t('js.picker.less_than_a_minute_left');
+    return tn('js.picker.minutes_left', Math.round(seconds / 60));
 }
 
 function exportProgress(total) {
@@ -106,26 +106,26 @@ function exportProgress(total) {
     const startedAt = Date.now();
     bar.max = total;
     bar.value = 0;
-    label.textContent = 'Exporting…';
-    count.textContent = `0 of ${total}`;
-    detail.textContent = 'Keep this page open until it finishes.';
+    label.textContent = t('js.picker.exporting');
+    count.textContent = t('js.picker.progress_count', { done: 0, total });
+    detail.textContent = t('js.picker.keep_open');
     box.hidden = false;
     return {
         update(done, failed) {
             bar.value = done;
-            count.textContent = `${done} of ${total}`;
+            count.textContent = t('js.picker.progress_count', { done, total });
             const parts = [];
-            if (failed) parts.push(`${failed} couldn’t be saved`);
+            if (failed) parts.push(tn('js.picker.failed_part', failed));
             if (done >= EXPORT_CHUNK_SIZE && done < total) {
                 const perPhoto = (Date.now() - startedAt) / 1000 / done;
                 parts.push(formatRemaining(perPhoto * (total - done)));
             }
-            parts.push('keep this page open until it finishes');
+            parts.push(t('js.picker.keep_open_part'));
             const text = parts.join(' · ');
             detail.textContent = text.charAt(0).toUpperCase() + text.slice(1) + '.';
         },
         finish() {
-            label.textContent = 'Opening your files…';
+            label.textContent = t('js.picker.opening_files');
             detail.textContent = '';
         },
         hide() {
@@ -153,7 +153,7 @@ async function exportChunk(chunk, jobId, includeJson) {
 
 async function extractAllExif() {
     if (!loadedPickerItems.length) {
-        showStatus('Choose photos or videos first, then wait for the list.', 'error');
+        showStatus(t('js.picker.choose_first'), 'error');
         return;
     }
     const btn = document.getElementById('extract-exif-btn');
@@ -204,7 +204,7 @@ async function extractAllExif() {
     } catch (e) {
         window.removeEventListener('beforeunload', warnBeforeLeaving);
         progress.hide();
-        showStatus(`Something went wrong after ${done} of ${total}: ${e.message}`, 'error');
+        showStatus(t('js.picker.failed_after', { done, total, message: e.message }), 'error');
         if (btn) btn.disabled = false;
         if (pickerBtn) pickerBtn.disabled = false;
         return;
@@ -213,7 +213,7 @@ async function extractAllExif() {
     window.removeEventListener('beforeunload', warnBeforeLeaving);
     if (saved === 0) {
         progress.hide();
-        showStatus('Nothing could be exported. Check the terminal logs for details.', 'error');
+        showStatus(t('js.picker.nothing_exported'), 'error');
         if (btn) btn.disabled = false;
         if (pickerBtn) pickerBtn.disabled = false;
         return;
@@ -224,7 +224,7 @@ async function extractAllExif() {
 }
 
 function authenticate() {
-    showStatus('Opening Google sign-in…', 'info');
+    showStatus(t('js.picker.opening_sign_in'), 'info');
     window.location.href = '/auth';
 }
 
@@ -235,7 +235,7 @@ async function createSession() {
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || 'Failed to create session');
+        throw new Error(error.detail || t('js.picker.create_session_failed'));
     }
 
     return await response.json();
@@ -243,16 +243,16 @@ async function createSession() {
 
 async function openPicker() {
     if (!authenticated) {
-        showStatus('Sign in with Google first (button above).', 'error');
+        showStatus(t('js.picker.sign_in_first'), 'error');
         return;
     }
     try {
-        showStatus("Opening Google's photo picker...", 'info');
+        showStatus(t('js.picker.opening_picker'), 'info');
 
         const sessionData = await createSession();
 
         if (!sessionData.pickerUri) {
-            throw new Error('No picker URI returned');
+            throw new Error(t('js.picker.no_picker_uri'));
         }
 
         const messageListener = (event) => {
@@ -302,27 +302,27 @@ async function openPicker() {
 
         if (!pickerWindow) {
             window.removeEventListener('message', messageListener);
-            throw new Error('Popup blocked. Please allow popups for this site.');
+            throw new Error(t('js.picker.popup_blocked'));
         }
 
-        showStatus('Choose photos or videos in the new window, then wait for them to appear here.', 'success');
+        showStatus(t('js.picker.choose_in_window'), 'success');
 
         pollSessionStatus(sessionData.pollInterval);
     } catch (error) {
-        showStatus(`Something went wrong: ${error.message}`, 'error');
+        showStatus(t('js.picker.something_went_wrong', { message: error.message }), 'error');
     }
 }
 
 async function handlePickerResponse(data) {
     console.log('Handling picker response:', data);
-    showStatus('Loading your selection…', 'info');
+    showStatus(t('js.picker.loading_selection'), 'info');
 
     try {
         const mediaItems = data.mediaItems || [];
         displayPhotos(mediaItems);
     } catch (error) {
         console.error('Error handling picker response:', error);
-        showStatus(`Couldn't load your selection: ${error.message}`, 'error');
+        showStatus(t('js.picker.selection_load_failed', { message: error.message }), 'error');
     }
 }
 
@@ -335,12 +335,12 @@ function displayPhotos(items) {
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">📷</div>
-                <h3>Nothing selected yet</h3>
-                <p>Use “Choose photos & videos”, pick items in the popup, then they’ll show up here.</p>
+                <h3>${t('js.picker.empty_title')}</h3>
+                <p>${t('js.picker.empty_hint')}</p>
             </div>
         `;
-        document.getElementById('photo-count').textContent = 'Nothing selected';
-        showStatus('Nothing selected yet.', 'info');
+        document.getElementById('photo-count').textContent = t('js.picker.nothing_selected');
+        showStatus(t('js.picker.nothing_selected_yet'), 'info');
         return;
     }
 
@@ -359,7 +359,7 @@ function displayPhotos(items) {
         const height = item.mediaMetadata?.height || '?';
         const created = item.mediaMetadata?.creationTime
             ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
-            : 'Unknown';
+            : t('js.picker.unknown');
 
         const location = item.location || item.mediaMetadata?.location;
         const hasLocation = location && (location.latitude || location.longitude);
@@ -370,7 +370,7 @@ function displayPhotos(items) {
         card.innerHTML = `
             ${imgSrc ? `<img src="${imgSrc}" alt="" loading="lazy">` : ''}
             <div class="photo-info">
-                <h3 title="${item.filename || 'Untitled'}">${item.filename || 'Untitled'}</h3>
+                <h3 title="${item.filename || t('js.picker.untitled')}">${item.filename || t('js.picker.untitled')}</h3>
                 <div class="photo-meta">
                     <div class="meta-item">
                         <span>📐</span>
@@ -382,14 +382,14 @@ function displayPhotos(items) {
                     </div>
                     <div class="meta-item">
                         <span>📄</span>
-                        <span>${item.mimeType?.split('/')[1]?.toUpperCase() || 'Unknown'}</span>
+                        <span>${item.mimeType?.split('/')[1]?.toUpperCase() || t('js.picker.unknown')}</span>
                     </div>
                     ${
                         locationText
                             ? `
                     <div class="meta-item">
                         <span>📍</span>
-                        <span title="Latitude, Longitude">${locationText}</span>
+                        <span title="${t('js.picker.lat_lng')}">${locationText}</span>
                     </div>
                     `
                             : ''
@@ -404,7 +404,7 @@ function displayPhotos(items) {
     container.innerHTML = '';
     container.appendChild(grid);
     setLoadedPickerItems(items);
-    showStatus(`Loaded ${describeSelection(items)}.`, 'success');
+    showStatus(t('js.picker.loaded', { selection: describeSelection(items) }), 'success');
 }
 
 async function pollSessionStatus(pollInterval) {
@@ -441,14 +441,14 @@ async function loadSelectedPhotos() {
     try {
         const container = document.getElementById('photos-content');
         container.innerHTML =
-            '<div class="loading"><div class="spinner"></div><p>Loading your photos…</p></div>';
+            `<div class="loading"><div class="spinner"></div><p>${t('js.picker.loading_photos')}</p></div>`;
         document.getElementById('photos-container').classList.add('show');
 
         const response = await fetch('/api/list-selected');
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.detail || error.error || 'Failed to load your selection');
+            throw new Error(error.detail || error.error || t('js.picker.list_failed'));
         }
 
         const data = await response.json();
@@ -458,11 +458,11 @@ async function loadSelectedPhotos() {
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📷</div>
-                    <h3>Nothing selected yet</h3>
-                    <p>Use “Choose photos & videos”, pick items in the popup, then they’ll show up here.</p>
+                    <h3>${t('js.picker.empty_title')}</h3>
+                    <p>${t('js.picker.empty_hint')}</p>
                 </div>
             `;
-            document.getElementById('photo-count').textContent = 'Nothing selected';
+            document.getElementById('photo-count').textContent = t('js.picker.nothing_selected');
             return;
         }
 
@@ -481,12 +481,12 @@ async function loadSelectedPhotos() {
             const height = item.mediaMetadata?.height || '?';
             const created = item.mediaMetadata?.creationTime
                 ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
-                : 'Unknown';
+                : t('js.picker.unknown');
 
             card.innerHTML = `
                 ${imgSrc ? `<img src="${imgSrc}" alt="" loading="lazy">` : ''}
                 <div class="photo-info">
-                    <h3 title="${item.filename || 'Untitled'}">${item.filename || 'Untitled'}</h3>
+                    <h3 title="${item.filename || t('js.picker.untitled')}">${item.filename || t('js.picker.untitled')}</h3>
                     <div class="photo-meta">
                         <div class="meta-item">
                             <span>📐</span>
@@ -498,7 +498,7 @@ async function loadSelectedPhotos() {
                         </div>
                         <div class="meta-item">
                             <span>📄</span>
-                            <span>${item.mimeType?.split('/')[1]?.toUpperCase() || 'Unknown'}</span>
+                            <span>${item.mimeType?.split('/')[1]?.toUpperCase() || t('js.picker.unknown')}</span>
                         </div>
                     </div>
                 </div>
@@ -510,13 +510,13 @@ async function loadSelectedPhotos() {
         container.innerHTML = '';
         container.appendChild(grid);
         setLoadedPickerItems(data.items);
-        showStatus(`Loaded ${describeSelection(data.items)}.`, 'success');
+        showStatus(t('js.picker.loaded', { selection: describeSelection(data.items) }), 'success');
     } catch (error) {
         setLoadedPickerItems([]);
         document.getElementById('photos-content').innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">⚠️</div>
-                <h3>Error</h3>
+                <h3>${t('js.picker.error_title')}</h3>
                 <p>${error.message}</p>
             </div>`;
     }
@@ -525,7 +525,7 @@ async function loadSelectedPhotos() {
 async function signOut() {
     const signoutBtn = document.getElementById('signout-btn');
     if (signoutBtn) signoutBtn.disabled = true;
-    showStatus('Signing out…', 'info');
+    showStatus(t('js.picker.signing_out'), 'info');
 
     try {
         await fetch('/auth/logout', {
@@ -546,14 +546,16 @@ window.addEventListener('load', async () => {
             const data = await response.json().catch(() => ({}));
             authenticated = true;
             const authBtn = document.getElementById('auth-btn');
-            authBtn.textContent = 'Signed in';
+            authBtn.textContent = t('js.picker.signed_in');
             authBtn.className = 'btn btn-muted';
             authBtn.disabled = true;
 
             const accountBar = document.getElementById('google-account-bar');
             const signedInUser = document.getElementById('signed-in-user');
             if (accountBar && signedInUser) {
-                signedInUser.textContent = data.email ? `Signed in as ${data.email} ·` : 'Signed in ·';
+                signedInUser.textContent = data.email
+                    ? t('js.picker.signed_in_as', { email: data.email })
+                    : t('js.picker.signed_in_no_email');
                 accountBar.style.display = 'flex';
             }
 
@@ -561,7 +563,7 @@ window.addEventListener('load', async () => {
         } else {
             const data = await response.json().catch(() => ({}));
             if (data.reason === 'expired') {
-                showStatus('Your Google session expired. Sign in again to choose photos.', 'info');
+                showStatus(t('js.picker.session_expired'), 'info');
             }
         }
     } catch {

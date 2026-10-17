@@ -2,25 +2,25 @@
 {% block body %}
 <main class="job-page">
   <section class="job-hero">
-    <p class="eyebrow">Batch complete</p>
-    <h1>Your files are ready.</h1>
-    <p class="job-summary">Download one archive to keep each photo and video’s original date when you extract the files.</p>
-    <p class="job-file-count" aria-label="Batch summary">
-      <strong>{{ file_count }}</strong> file{% if file_count != 1 %}s{% endif %}
+    <p class="eyebrow">{{ t('job.eyebrow') }}</p>
+    <h1>{{ t('job.title') }}</h1>
+    <p class="job-summary">{{ t('job.summary') }}</p>
+    <p class="job-file-count" aria-label="{{ t('job.summary_aria') }}">
+      {{ tn('job.file_count_html', file_count) }}
       {%- set parts = [] -%}
-      {%- if image_files %}{% set _ = parts.append(image_files|length ~ (' image' if image_files|length == 1 else ' images')) %}{% endif -%}
-      {%- if video_files %}{% set _ = parts.append(video_files|length ~ (' video' if video_files|length == 1 else ' videos')) %}{% endif -%}
-      {%- if json_files %}{% set _ = parts.append(json_files|length ~ (' JSON file' if json_files|length == 1 else ' JSON files')) %}{% endif -%}
-      {%- if other_files %}{% set _ = parts.append(other_files|length ~ (' other file' if other_files|length == 1 else ' other files')) %}{% endif -%}
+      {%- if image_files %}{% set _ = parts.append(tn('job.image_count', image_files|length)) %}{% endif -%}
+      {%- if video_files %}{% set _ = parts.append(tn('job.video_count', video_files|length)) %}{% endif -%}
+      {%- if json_files %}{% set _ = parts.append(tn('job.json_count', json_files|length)) %}{% endif -%}
+      {%- if other_files %}{% set _ = parts.append(tn('job.other_count', other_files|length)) %}{% endif -%}
       {% if parts %}: {{ parts|join(', ') }}{% endif %}
     </p>
   {% if failed %}
-    <p class="job-failed-notice" role="status">{{ failed }} item{% if failed != 1 %}s{% endif %} couldn’t be saved. The rest are ready below.</p>
+    <p class="job-failed-notice" role="status">{{ tn('job.failed', failed) }}</p>
   {% endif %}
   {% if file_count %}
   <div class="job-actions job-actions--save">
-    <a class="btn btn-primary" href="{{ url_for('jobs.download_zip', job_id=job_id) }}">Download ZIP</a>
-    <span class="job-actions-hint">Your browser saves the ZIP to Downloads by default. Extract it to preserve each file’s capture date as its modification date; change the download folder in your browser settings if needed.</span>
+    <a class="btn btn-primary" href="{{ url_for('jobs.download_zip', job_id=job_id) }}">{{ t('job.download_zip') }}</a>
+    <span class="job-actions-hint">{{ t('job.zip_hint') }}</span>
   </div>
   {% endif %}
   </section>
@@ -28,13 +28,13 @@
   <section class="job-files-panel">
   <div class="job-files-panel-heading">
     <div>
-      <p class="source-kicker">Output</p>
-      <h2>Files in this batch</h2>
+      <p class="source-kicker">{{ t('job.output_kicker') }}</p>
+      <h2>{{ t('job.files_title') }}</h2>
     </div>
-    <p class="job-hint">Individual downloads are available below. Use the ZIP above when file dates matter.</p>
+    <p class="job-hint">{{ t('job.files_hint') }}</p>
   </div>
   {% if image_files %}
-  <h3 class="job-section-title">Images</h3>
+  <h3 class="job-section-title">{{ t('job.images_title') }}</h3>
   <ul class="job-files job-files--scroll">
     {% for f in image_files %}
     <li><a href="{{ url_for('jobs.serve_file', job_id=job_id, filename=f.name) }}" title="{{ f.name }}">{{ f.label }}</a></li>
@@ -43,7 +43,7 @@
   {% endif %}
 
   {% if video_files %}
-  <h3 class="job-section-title">Videos</h3>
+  <h3 class="job-section-title">{{ t('job.videos_title') }}</h3>
   <ul class="job-files job-files--scroll">
     {% for f in video_files %}
     <li><a href="{{ url_for('jobs.serve_file', job_id=job_id, filename=f.name) }}" title="{{ f.name }}">{{ f.label }}</a></li>
@@ -53,7 +53,7 @@
 
   {% if json_files %}
   <details class="job-details-block">
-    <summary>JSON detail files ({{ json_files|length }}) — tap to expand</summary>
+    <summary>{{ t('job.json_details', count=json_files|length) }}</summary>
     <ul class="job-files job-files--scroll job-files--compact">
       {% for f in json_files %}
       <li><a href="{{ url_for('jobs.serve_file', job_id=job_id, filename=f.name) }}" title="{{ f.name }}">{{ f.label }}</a></li>
@@ -64,7 +64,7 @@
 
   {% if other_files %}
   <details class="job-details-block">
-    <summary>Other files ({{ other_files|length }})</summary>
+    <summary>{{ t('job.other_details', count=other_files|length) }}</summary>
     <ul class="job-files job-files--scroll job-files--compact">
       {% for f in other_files %}
       <li><a href="{{ url_for('jobs.serve_file', job_id=job_id, filename=f.name) }}" title="{{ f.name }}">{{ f.label }}</a></li>
@@ -74,7 +74,7 @@
   {% endif %}
 
   {% if not image_files and not video_files and not json_files and not other_files %}
-  <p class="job-empty">No files found in this folder.</p>
+  <p class="job-empty">{{ t('job.empty') }}</p>
   {% endif %}
   </section>
 </main>
