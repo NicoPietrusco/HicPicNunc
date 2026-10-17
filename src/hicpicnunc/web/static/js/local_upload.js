@@ -1,6 +1,6 @@
 (function () {
   const { t, tn } = window.i18n;
-  const form =document.getElementById("local-upload-form");
+  const form = document.getElementById("local-upload-form");
   const fileInput = document.getElementById("local-file-input");
   const pickFilesBtn = document.getElementById("local-pick-files");
   const pickFolderBtn = document.getElementById("local-pick-folder");
