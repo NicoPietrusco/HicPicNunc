@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from werkzeug.utils import secure_filename
+from ..core.filenames import safe_filename
 
 _STEM_SUFFIX_RE = re.compile(r"^(_?[a-zA-Z0-9_-]{0,63})$")
 
@@ -25,13 +25,16 @@ def parse_bool(raw: object, default: bool = True) -> bool:
 
 
 def sanitize_relative_path(rel: str) -> str | None:
-    """Normalize a client-provided relative path (folder uploads); reject path traversal."""
+    """
+    Normalize a client-provided relative path (folder uploads) with the export file-name
+    rules; reject path traversal and empty segments.
+    """
     if not rel or "\0" in rel:
         return None
     r = rel.replace("\\", "/").strip().strip("/")
     if not r:
         return None
-    parts = r.split("/")
-    if any(not p or p in (".", "..") or secure_filename(p) != p for p in parts):
+    parts = [safe_filename(p) if p not in (".", "..") else "" for p in r.split("/")]
+    if not all(parts):
         return None
     return "/".join(parts)

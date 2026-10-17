@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from flask import (
@@ -17,9 +16,9 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.utils import secure_filename
 
 from ...core.exif import process_image_extract_and_embed
+from ...core.filenames import safe_filename, unique_name
 from ...core.jobs import (
     get_job_dir,
     is_image_file,
@@ -34,19 +33,6 @@ from ...settings import settings
 from ..forms import parse_bool, parse_stem_suffix, sanitize_relative_path
 
 bp = Blueprint("jobs", __name__)
-
-_JOB_FILE_PREFIX_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_\d+_(.+)$",
-    re.I,
-)
-
-
-def friendly_job_filename(filename: str) -> str:
-    """Strip leading job id + index from stored filenames for display."""
-    if "/" in filename:
-        return filename
-    m = _JOB_FILE_PREFIX_RE.match(filename)
-    return m.group(1) if m else filename
 
 
 def categorize_job_files(names: list[str]) -> dict[str, list[str]]:
@@ -88,14 +74,13 @@ def upload():
         if not f.filename:
             continue
         rel = form_rels[i] if i < len(form_rels) else (f.filename or "")
-        safe_rel = sanitize_relative_path(rel.replace("\\", "/"))
-        if not safe_rel:
-            bn = secure_filename(Path(rel.replace("\\", "/")).name)
-            if not bn:
+        safe_rel = sanitize_relative_path(rel)
+        if not safe_rel:  # path traversal or empty segments: keep the file, drop its folders
+            safe_rel = safe_filename(rel.replace("\\", "/").rsplit("/", 1)[-1])
+            if not safe_rel:
                 continue
-            safe_rel = bn
-        name = secure_filename(Path(safe_rel).name)
-        if not name or not is_image_file(Path(name)):
+        name = Path(safe_rel).name
+        if not is_image_file(Path(name)):
             continue
         rows.append((f, name, safe_rel))
 
@@ -113,16 +98,17 @@ def upload():
     errors: list[str] = []
     out_payload: list[dict[str, str | None]] = []
     for i, (f, name, safe_rel) in enumerate(rows):
-        parent = Path(safe_rel).parent
-        out_subdir = job_out / parent
+        out_subdir = job_out / Path(safe_rel).parent
+        stem = Path(name).stem
+        out_name = unique_name(out_subdir, safe_filename(f"{stem}{stem_suffix}{Path(name).suffix}"))
         with staged_file(job, i, name) as dest:
             f.save(dest)
             result = process_image_extract_and_embed(
                 dest,
                 out_subdir,
                 field_config,
-                stem_suffix=stem_suffix,
-                output_stem=Path(safe_rel).stem,
+                stem_suffix="",
+                output_stem=Path(out_name).stem,
                 write_json=include_json,
             )
         if result.get("error"):
@@ -180,10 +166,7 @@ def result(job_id: str):
     groups = categorize_job_files(names)
 
     def _items(ns: list[str]) -> list[dict[str, str]]:
-        # Sort by the displayed name: stored names start with the job's item index.
-        return sorted(
-            ({"name": n, "label": friendly_job_filename(n)} for n in ns), key=lambda f: f["label"]
-        )
+        return [{"name": n, "label": n} for n in ns]
 
     return render_template(
         "job.html",

@@ -504,8 +504,8 @@ def process_image_extract_and_embed(
     """
     Extract filtered EXIF, optionally save JSON, and save a new image with embedded subset.
 
-    If output_stem is set (local folder flow), JSON and image use that basename plus
-    stem_suffix (use stem_suffix="" to match original names for overwrite-style output).
+    The image is saved as output_stem (default: image_path's stem) plus stem_suffix plus
+    image_path's extension; the JSON sidecar, if any, as that name plus ".json".
 
     Returns paths and status for Flask / API use.
     """
@@ -516,21 +516,15 @@ def process_image_extract_and_embed(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     stem_base = output_stem if output_stem is not None else image_path.stem
-    if output_stem is not None:
-        json_stem_name = f"{stem_base}{stem_suffix}"
-        ext_result = extract_exif_data(
-            image_path,
-            output_dir,
-            field_config,
-            write_json=write_json,
-            json_stem_name=json_stem_name,
-        )
-    else:
-        ext_result = extract_exif_data(image_path, output_dir, field_config, write_json=write_json)
+    out_name = f"{stem_base}{stem_suffix}{image_path.suffix}"
+    # The sidecar keeps the image's full name ("IMG.jpg.json"), so IMG.jpg and IMG.heic
+    # never share one.
+    ext_result = extract_exif_data(
+        image_path, output_dir, field_config, write_json=write_json, json_stem_name=out_name
+    )
     if "error" in ext_result:
         return ext_result
 
-    out_name = f"{stem_base}{stem_suffix}{image_path.suffix}"
     output_image = output_dir / out_name
 
     ok = embed_exif_subset(image_path, output_image, field_config)
