@@ -8,13 +8,14 @@ from pathlib import Path
 from PyInstaller.utils.hooks import copy_metadata
 
 ROOT = Path(SPECPATH).parent
-PACKAGE = ROOT / "src" / "gphotometasync"
+PACKAGE = ROOT / "src" / "hicpicnunc"
 
 datas = [
-    (str(PACKAGE / "core" / "metadata_fields.yaml"), "gphotometasync/core"),
-    (str(PACKAGE / "web" / "static"), "gphotometasync/web/static"),
-    (str(PACKAGE / "web" / "templates"), "gphotometasync/web/templates"),
-    *copy_metadata("gphotometasync"),  # lets importlib.metadata report __version__
+    (str(PACKAGE / "core" / "metadata_fields.yaml"), "hicpicnunc/core"),
+    (str(PACKAGE / "web" / "static"), "hicpicnunc/web/static"),
+    (str(PACKAGE / "web" / "templates"), "hicpicnunc/web/templates"),
+    (str(PACKAGE / "web" / "locales"), "hicpicnunc/web/locales"),
+    *copy_metadata("hicpicnunc"),  # lets importlib.metadata report __version__
 ]
 
 oauth_client = Path(
@@ -44,7 +45,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="Photo Meta Sync",
+    name="Hic Pic Nunc",
     console=False,
 )
 coll = COLLECT(
@@ -54,12 +55,12 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="Photo Meta Sync",
+    name="Hic Pic Nunc",
 )
 
 if sys.platform == "darwin":
     app = BUNDLE(
         coll,
-        name="Photo Meta Sync.app",
-        bundle_identifier="com.nicopietrusco.gphotometasync",
+        name="Hic Pic Nunc.app",
+        bundle_identifier="com.nicopietrusco.hicpicnunc",
     )

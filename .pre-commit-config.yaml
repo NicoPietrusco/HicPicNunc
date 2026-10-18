@@ -1,0 +1,46 @@
+# Run with prek (https://github.com/j178/prek): `just hooks` installs them, `just check` runs them all.
+# Tools come from uv.lock through `uv run`, so hooks, CI and `just` always use the same versions.
+repos:
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: uv-lock
+        name: uv.lock matches pyproject.toml
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --frozen ruff check --fix
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --frozen ruff format
+        language: system
+        types_or: [python, pyi]
+
+      - id: ty
+        name: ty check
+        entry: uv run --frozen ty check src/
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+
+      - id: zizmor
+        name: zizmor
+        entry: uv run --frozen zizmor .github
+        language: system
+        files: ^\.github/
+        pass_filenames: false

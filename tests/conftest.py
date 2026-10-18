@@ -14,8 +14,9 @@ from flask.testing import FlaskClient
 from google.oauth2.credentials import Credentials
 from PIL import Image
 
-from gphotometasync.web import session as web_session
-from gphotometasync.web.app import create_app
+from hicpicnunc.google_photos.oauth import SCOPES
+from hicpicnunc.web import session as web_session
+from hicpicnunc.web.app import create_app
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ def make_jpeg(tmp_path: Path) -> Callable[..., Path]:
 def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point every writable app path (data, settings, token) at a temp folder."""
     path = tmp_path / "appdata"
-    monkeypatch.setenv("GPHOTOMETASYNC_DATA_DIR", str(path))
+    monkeypatch.setenv("HICPICNUNC_DATA_DIR", str(path))
     return path
 
 
@@ -60,6 +61,8 @@ def fake_credentials() -> Credentials:
         client_id="client-id",
         client_secret="client-secret",
         token_uri="https://oauth2.googleapis.com/token",
+        scopes=list(SCOPES),
+        granted_scopes=list(SCOPES),
         # google-auth compares against naive UTC
         expiry=datetime.now(UTC).replace(tzinfo=None) + timedelta(hours=1),
     )

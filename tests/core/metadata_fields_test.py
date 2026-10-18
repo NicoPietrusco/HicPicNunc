@@ -1,4 +1,4 @@
-"""Tests for gphotometasync.core.metadata_fields."""
+"""Tests for hicpicnunc.core.metadata_fields."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gphotometasync.core.metadata_fields import (
+from hicpicnunc.core.metadata_fields import (
     build_exif_field_config,
     default_metadata_preferences,
     load_metadata_preferences,

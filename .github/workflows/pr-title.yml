@@ -1,0 +1,39 @@
+name: PR title
+
+# PRs are squash-merged and the PR title becomes the commit message on main,
+# so the title must be a Conventional Commit.
+on:
+  pull_request:
+    # `synchronize` re-runs the check on every push, since required checks apply to the latest commit.
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: pr-title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            chore
+            test
+            refactor
+            ci
+            build
+            perf
+            style
+            revert

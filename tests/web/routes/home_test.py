@@ -1,4 +1,4 @@
-"""Tests for gphotometasync.web.routes.home."""
+"""Tests for hicpicnunc.web.routes.home."""
 
 from __future__ import annotations
 

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hic Pic Nunc · Where and when, kept in every pic</title>
+  <meta name="description" content="A free desktop app that exports photos and videos from Google Photos with their capture dates, running entirely on your computer.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="site-header">
+      <a class="brand" href="./"><img src="favicon.svg" alt=""> Hic Pic Nunc</a>
+      <nav class="site-nav" aria-label="Site">
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/NicoPietrusco/HicPicNunc">GitHub</a>
+      </nav>
+    </header>
+
+    <main>
+      <p class="eyebrow">Where and when, kept in every pic</p>
+      <h1>Bring your photos and videos home with their dates.</h1>
+      <p class="lead">Hic Pic Nunc is a free, open-source desktop app that exports the photos and videos you choose from Google Photos and keeps their capture dates, so they stay in the right order in any other photo library.</p>
+
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/NicoPietrusco/HicPicNunc/releases/latest">Download for macOS or Windows</a>
+        <a class="btn" href="https://github.com/NicoPietrusco/HicPicNunc#use-the-app">How to use it</a>
+      </div>
+      <p class="muted">Not a commercial product: no account, no subscription, no ads.</p>
+
+      <section class="card">
+        <h2>What it does</h2>
+        <ul>
+          <li>Sign in with Google, then pick photos and videos in Google’s own picker. The app only sees the items you pick.</li>
+          <li>Each photo keeps its EXIF capture date, and optionally its camera details. Items without one, and videos, get the date Google Photos records for them.</li>
+          <li>Everything is packaged in one ZIP: once extracted, every file’s date matches when it was taken.</li>
+          <li>It can also restore file dates on photos you already downloaded, using their EXIF data.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Why “Hic Pic Nunc”?</h2>
+        <p>From the Latin <em>hic et nunc</em>, “here and now”: every photo is a moment in a place and a time. The app keeps that moment with the picture, the <em>pic</em> between <em>hic</em> and <em>nunc</em>.</p>
+      </section>
+
+      <section class="card">
+        <h2>Runs on your computer</h2>
+        <p>The app runs locally and talks only to Google. There is no Hic Pic Nunc server: your photos, your Google sign-in and your settings never reach the developer or anyone else. Read the <a href="privacy.html">privacy policy</a> for the details.</p>
+      </section>
+
+      <section class="card">
+        <h2>Limits set by Google</h2>
+        <p class="note">Google removes location (GPS) from every photo downloaded through its API, and provides a high-quality transcoded copy of each video, not the original file. For a full migration that keeps locations and original videos, <a href="https://takeout.google.com/">Google Takeout</a> is currently the only option.</p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>If Hic Pic Nunc saved your photo dates, a <a href="https://github.com/NicoPietrusco/HicPicNunc">⭐ on GitHub</a> helps others find it.</p>
+      <p>Hic Pic Nunc is open source under the <a href="https://github.com/NicoPietrusco/HicPicNunc/blob/main/LICENSE">MIT license</a>. It is not affiliated with or endorsed by Google. Google Photos is a trademark of Google LLC.</p>
+    </footer>
+  </div>
+</body>
+</html>

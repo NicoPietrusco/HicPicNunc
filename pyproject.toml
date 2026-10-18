@@ -1,6 +1,6 @@
 [project]
-name = "gphotometasync"
-version = "0.1.0"
+name = "hicpicnunc"
+version = "0.4.0"
 description = "Google Photos Metadata Synchronizer - Extract and embed EXIF data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -27,40 +27,73 @@ dependencies = [
     "google-auth>=2.0.0",
     "google-auth-oauthlib>=1.2.0",
     "pillow-heif>=1.1.1",
+    # cryptography 49+ ships no Intel macOS wheels; built from source, it links an
+    # OpenSSL that PyInstaller can't bundle and the app crashes at startup. The
+    # second line keeps uv from settling on 48 for every platform.
+    "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "cryptography>=50; sys_platform != 'darwin' or platform_machine != 'x86_64'",
 ]
 
 [project.scripts]
-gphotometasync = "gphotometasync.__main__:main"
+hicpicnunc = "hicpicnunc.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/NicoPietrusco/GPhotosMetaSync"
-Repository = "https://github.com/NicoPietrusco/GPhotosMetaSync.git"
-Issues = "https://github.com/NicoPietrusco/GPhotosMetaSync/issues"
+Homepage = "https://github.com/NicoPietrusco/HicPicNunc"
+Repository = "https://github.com/NicoPietrusco/HicPicNunc.git"
+Issues = "https://github.com/NicoPietrusco/HicPicNunc/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/gphotometasync"]
+packages = ["src/hicpicnunc"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "B", "Q"]
+select = ["E", "F", "I", "N", "W", "B", "Q", "UP", "C4", "SIM"]
 ignore = ["E501"]  # Line too long (handled by formatter)
+
+[tool.ty.environment]
+# Check macOS- and Windows-only branches too, not just those of the OS ty runs on.
+python-platform = "all"
 
 [dependency-groups]
 dev = [
+    "prek>=0.5.3",
     "pyinstaller>=6.0.0",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.1.0",
     "ty>=0.0.1",
+    "zizmor>=1.30.1",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # importlib mode lets tests/<pkg>/ mirror src/ without __init__.py or basename clashes
 addopts = ["--import-mode=importlib"]
+
+# Coverage runs in CI and with `just coverage`, not on every `just test`, so running a
+# single test file never trips the threshold.
+[tool.coverage.run]
+source = ["hicpicnunc"]
+branch = true
+
+[tool.coverage.report]
+# A few points below the measured total, so it only catches regressions. Raise it as
+# coverage improves.
+fail_under = 82
+show_missing = true
+skip_covered = true
+exclude_also = [
+    # Process entry point; tests call main() directly.
+    'if __name__ == "__main__":',
+    # Ctrl+C on the running server, only reachable interactively.
+    "except KeyboardInterrupt:",
+    # Version fallback for a source tree that was never installed; tests always run installed.
+    "except PackageNotFoundError:",
+]

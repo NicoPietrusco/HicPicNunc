@@ -1,4 +1,4 @@
-# GPhotoMetaSync — https://github.com/casey/just
+# Hic Pic Nunc — https://github.com/casey/just
 # Install: brew install just  (or see https://github.com/casey/just)
 
 set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
@@ -22,7 +22,7 @@ verify:
 [group('Run')]
 web:
     @echo "Launching Flask app..."
-    uv run gphotometasync
+    uv run hicpicnunc
 
 [group('Setup')]
 install:
@@ -38,7 +38,7 @@ package:
 # Create a distributable macOS disk image after `just package`
 [group('Packaging')]
 package-macos: package
-    hdiutil create -volname "Photo Meta Sync" -srcfolder "dist/Photo Meta Sync.app" -ov -format UDZO "dist/PhotoMetaSync-macOS-{{mac_arch}}.dmg"
+    hdiutil create -volname "Hic Pic Nunc" -srcfolder "dist/Hic Pic Nunc.app" -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
 
 [group('Setup')]
 setup:
@@ -47,9 +47,24 @@ setup:
     uv sync --group dev
     @echo "Done."
 
+# Install the git hooks, so every commit runs the `just check` hooks on its staged files
+[group('Setup')]
+hooks:
+    uv run --frozen prek install
+
+# Run every hook on all files, as CI does: lint, format, types, lock file, workflow audit
+[group('Quality')]
+check:
+    uv run --frozen prek run --all-files
+
 [group('Quality')]
 lint:
     uv run ruff check src/ tests/
+
+# Audit GitHub Actions workflows and Dependabot config for security issues
+[group('Quality')]
+lint-workflows:
+    uv run zizmor .github
 
 [group('Quality')]
 typecheck:
@@ -59,9 +74,14 @@ typecheck:
 test:
     uv run pytest
 
+# Run the tests with coverage, as CI does, and write an HTML report to htmlcov/
+[group('Quality')]
+coverage:
+    uv run pytest --cov --cov-report=term-missing --cov-report=html
+
 [group('Quality')]
 format:
-    uv run ruff format src/
+    uv run ruff format src/ tests/
 
 [group('Maintenance')]
 clean:

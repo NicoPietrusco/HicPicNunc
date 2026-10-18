@@ -2,25 +2,53 @@ name: Quality checks
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # A new push to a PR supersedes the previous run; runs on main always finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  check:
+  checks:
+    name: checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          python-version: "3.11"
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
       - name: Install locked development tools
-        run: uv sync --group dev --frozen
-      - name: Lint
-        run: uv run ruff check src/ tests/
-      - name: Type check
-        run: uv run ty check src/
-      - name: Test
-        run: uv run pytest
+        run: uv sync --group dev --locked
+      - name: Run hooks (lint, format, types, lock file, workflow audit)
+        env:
+          # Enables zizmor's online audits, such as known-vulnerable actions and impostor commits.
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --frozen prek run --all-files --show-diff-on-failure
+
+  tests:
+    name: tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Same platforms as the desktop releases, so OS-specific failures show up in PRs.
+        os: [ubuntu-latest, windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+      - name: Install locked development tools
+        run: uv sync --group dev --locked
+      - name: Test with coverage
+        # Fails below fail_under in pyproject.toml.
+        run: uv run --frozen pytest --cov

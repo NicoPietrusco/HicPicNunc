@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check that OAuth client JSON exists and the Flask app factory loads."""
 
-from gphotometasync.settings import settings
-from gphotometasync.web.app import create_app
+from hicpicnunc.settings import settings
+from hicpicnunc.web.app import create_app
 
 
 def main() -> None:
