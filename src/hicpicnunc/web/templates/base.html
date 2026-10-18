@@ -1,15 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ settings.APP_NAME }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script>window.__I18N__ = {{ js_i18n | tojson }};</script>
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 </head>
 <body>
   <div class="page">
     <header class="app-header">
-      <a class="brand" href="{{ url_for('home.index') }}" aria-label="Hic Pic Nunc home">
+      <a class="brand" href="{{ url_for('home.index') }}" aria-label="{{ t('header.home_aria') }}">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 40 40" focusable="false">
             <rect class="brand-mark-frame" x="7.5" y="7" width="25" height="20" rx="3.5"/>
@@ -22,7 +24,7 @@
       </a>
       <div class="app-header-context">
         <details class="app-settings-menu">
-          <summary aria-label="Open settings" title="Settings">
+          <summary aria-label="{{ t('settings.open_aria') }}" title="{{ t('settings.title') }}">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <line x1="21" x2="14" y1="4" y2="4"/>
               <line x1="10" x2="3" y1="4" y2="4"/>
@@ -34,50 +36,50 @@
               <line x1="8" x2="8" y1="10" y2="14"/>
               <line x1="16" x2="16" y1="18" y2="22"/>
             </svg>
-            <span>Settings</span>
+            <span>{{ t('settings.title') }}</span>
           </summary>
           <section class="settings-popover" aria-labelledby="metadata-settings-title">
             <header class="settings-popover-header">
               <div>
-                <p class="source-kicker">Saved on this device</p>
-                <h2 id="metadata-settings-title">Metadata to keep</h2>
+                <p class="source-kicker">{{ t('settings.saved_on_device') }}</p>
+                <h2 id="metadata-settings-title">{{ t('settings.metadata_title') }}</h2>
               </div>
             </header>
             <div class="metadata-preferences-body">
               <div class="metadata-preference metadata-preference--fixed">
                 <span class="metadata-check" aria-hidden="true">✓</span>
                 <span class="metadata-preference-copy">
-                  <strong>Capture date</strong>
-                  <small>Always kept when it exists in the photo, with its time zone and rotation.</small>
+                  <strong>{{ t('settings.capture_date') }}</strong>
+                  <small>{{ t('settings.capture_date_help') }}</small>
                 </span>
-                <span class="metadata-fixed-label">Always on</span>
+                <span class="metadata-fixed-label">{{ t('settings.always_on') }}</span>
               </div>
               <label class="metadata-preference">
                 <input type="checkbox" id="metadata-camera-details" {% if metadata_preferences.camera_details %}checked{% endif %}>
                 <span class="metadata-preference-copy">
-                  <strong>Camera details</strong>
-                  <small>Make, model, lens, and exposure settings.</small>
+                  <strong>{{ t('settings.camera_details') }}</strong>
+                  <small>{{ t('settings.camera_details_help') }}</small>
                 </span>
               </label>
               <label class="metadata-preference">
                 <input type="checkbox" id="metadata-gps-location" {% if metadata_preferences.gps_location %}checked{% endif %}>
                 <span class="metadata-preference-copy">
-                  <strong>GPS location</strong>
-                  <small>Coordinates and altitude, when present. Google Photos downloads never include them.</small>
+                  <strong>{{ t('settings.gps_location') }}</strong>
+                  <small>{{ t('settings.gps_location_help') }}</small>
                 </span>
               </label>
               <label class="metadata-preference metadata-json-preference">
                 <input type="checkbox" id="metadata-include-json" {% if metadata_preferences.include_json %}checked{% endif %}>
                 <span class="metadata-preference-copy">
-                  <strong>JSON sidecar</strong>
-                  <small>Create a readable metadata file next to each image.</small>
+                  <strong>{{ t('settings.json_sidecar') }}</strong>
+                  <small>{{ t('settings.json_sidecar_help') }}</small>
                 </span>
               </label>
             </div>
             <div class="metadata-preferences-actions">
               <span id="metadata-preferences-status" class="metadata-preferences-status" role="status" aria-live="polite"></span>
-              <button type="button" class="btn btn-secondary" id="metadata-reset-defaults">Reset</button>
-              <button type="button" class="btn btn-primary" id="metadata-save-preferences">Save</button>
+              <button type="button" class="btn btn-secondary" id="metadata-reset-defaults">{{ t('settings.reset') }}</button>
+              <button type="button" class="btn btn-primary" id="metadata-save-preferences">{{ t('settings.save') }}</button>
             </div>
           </section>
         </details>
@@ -94,9 +96,9 @@
     <script src="{{ url_for('static', filename='js/metadata_preferences.js') }}" defer></script>
     <footer class="site-footer">
       {% if request.endpoint != 'home.index' %}
-      <a href="{{ url_for('home.index') }}">← Back to home</a>
+      <a href="{{ url_for('home.index') }}">{{ t('footer.back_home') }}</a>
       {% endif %}
-      <a class="site-footer-privacy" href="https://nicopietrusco.github.io/HicPicNunc/privacy.html" target="_blank" rel="noopener">Privacy policy</a>
+      <a class="site-footer-privacy" href="https://nicopietrusco.github.io/HicPicNunc/privacy.html" target="_blank" rel="noopener">{{ t('footer.privacy') }}</a>
     </footer>
   </div>
 </body>

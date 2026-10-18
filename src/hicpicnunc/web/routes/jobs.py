@@ -32,6 +32,7 @@ from ...core.jobs import (
 from ...core.metadata_fields import load_user_exif_field_config
 from ...settings import settings
 from ..forms import parse_bool, parse_stem_suffix, sanitize_relative_path
+from ..i18n import t, tn
 
 bp = Blueprint("jobs", __name__)
 
@@ -76,7 +77,7 @@ def upload():
     if not file_list:
         if wants_json:
             return jsonify({"ok": False, "detail": "No file was uploaded."}), 400
-        flash("No file was uploaded. Try again.", "error")
+        flash(t("flash.no_file"), "error")
         return redirect(url_for("home.index"))
 
     stem_suffix = parse_stem_suffix(request.form.get("stem_suffix"))
@@ -102,7 +103,7 @@ def upload():
     if not rows:
         if wants_json:
             return jsonify({"ok": False, "detail": "No supported images."}), 400
-        flash("Choose at least one supported image (JPEG, PNG, etc.).", "error")
+        flash(t("flash.no_supported_images"), "error")
         return redirect(url_for("home.index"))
 
     job, job_out = new_job()
@@ -147,7 +148,7 @@ def upload():
         if wants_json:
             detail = errors[0] if errors else "Processing failed."
             return jsonify({"ok": False, "processed": 0, "errors": errors, "detail": detail}), 400
-        flash("Could not process any images. " + (errors[0] if errors else ""), "error")
+        flash(" ".join([t("flash.processing_failed"), *errors[:1]]), "error")
         return redirect(url_for("home.index"))
 
     session["last_job"] = job
@@ -163,9 +164,9 @@ def upload():
             }
         )
 
-    msg = f"Done. Saved metadata for {processed} image(s)."
+    msg = tn("flash.upload_done", processed)
     if errors:
-        msg += f" {len(errors)} could not be saved."
+        msg += " " + tn("flash.upload_partly_failed", len(errors))
     flash(msg, "success")
     return redirect(url_for("jobs.result", job_id=job))
 
@@ -174,7 +175,7 @@ def upload():
 def result(job_id: str):
     base = get_job_dir(job_id)
     if base is None:
-        flash("Those files aren't available anymore. Start from the home page.", "error")
+        flash(t("flash.job_expired"), "error")
         return redirect(url_for("home.index"))
     names = list_job_files(base)
     groups = categorize_job_files(names)

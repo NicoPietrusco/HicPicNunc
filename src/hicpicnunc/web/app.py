@@ -13,6 +13,7 @@ from ..core.jobs import prune_expired_jobs
 from ..core.metadata_fields import load_metadata_preferences
 from ..log import setup_logger
 from ..settings import settings
+from .i18n import current_language, js_catalog, t, tn
 from .routes import auth, home, jobs, picker
 
 _LOCAL_HOSTNAMES = {"127.0.0.1", "localhost", "[::1]"}
@@ -55,6 +56,10 @@ def create_app() -> Flask:
             "settings": settings,
             "google_oauth_ready": settings.google_oauth_client_secrets_path.is_file(),
             "metadata_preferences": load_metadata_preferences(settings.metadata_preferences_path),
+            "lang": current_language(),
+            "t": t,
+            "tn": tn,
+            "js_i18n": js_catalog(),
         }
 
     for blueprint in (home.bp, auth.bp, jobs.bp, picker.bp):

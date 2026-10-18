@@ -1,4 +1,5 @@
 (function () {
+  const { t } = window.i18n;
   const cameraDetails = document.getElementById("metadata-camera-details");
   const gpsLocation = document.getElementById("metadata-gps-location");
   const includeJson = document.getElementById("metadata-include-json");
@@ -11,7 +12,7 @@
   async function savePreferences() {
     saveButton.disabled = true;
     resetButton.disabled = true;
-    status.textContent = "Saving…";
+    status.textContent = t("js.preferences.saving");
 
     try {
       const response = await fetch("/api/metadata-preferences", {
@@ -27,11 +28,11 @@
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.ok) {
-        throw new Error(result.detail || "Could not save preferences.");
+        throw new Error(result.detail || t("js.preferences.save_failed"));
       }
-      status.textContent = "Saved on this device";
+      status.textContent = t("js.preferences.saved");
     } catch (error) {
-      status.textContent = error.message || "Could not save preferences.";
+      status.textContent = error.message || t("js.preferences.save_failed");
     } finally {
       saveButton.disabled = false;
       resetButton.disabled = false;

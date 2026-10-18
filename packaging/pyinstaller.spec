@@ -14,6 +14,7 @@ datas = [
     (str(PACKAGE / "core" / "metadata_fields.yaml"), "hicpicnunc/core"),
     (str(PACKAGE / "web" / "static"), "hicpicnunc/web/static"),
     (str(PACKAGE / "web" / "templates"), "hicpicnunc/web/templates"),
+    (str(PACKAGE / "web" / "locales"), "hicpicnunc/web/locales"),
     *copy_metadata("hicpicnunc"),  # lets importlib.metadata report __version__
 ]
 

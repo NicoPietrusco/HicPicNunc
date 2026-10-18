@@ -1,4 +1,5 @@
 (function () {
+  const { t, tn } = window.i18n;
   const form = document.getElementById("local-upload-form");
   const fileInput = document.getElementById("local-file-input");
   const pickFilesBtn = document.getElementById("local-pick-files");
@@ -60,12 +61,12 @@
       if (files[i].type.startsWith("image/")) imageCount += 1;
     }
     if (localPreviewCount) {
-      const outputName = `filenames ending in ${suffixDefault()}`;
-      const jsonOutput = includeJson && includeJson.checked ? "with JSON files" : "images only";
-      let line = `${n} file(s) selected — ${outputName}, ${jsonOutput}`;
-      if (imageCount !== n) line += ` (${imageCount} image preview)`;
+      const output = t("js.local.output_name", { suffix: suffixDefault() });
+      const json = t(includeJson && includeJson.checked ? "js.local.with_json" : "js.local.images_only");
+      let line = tn("js.local.selected", n, { output, json });
+      if (imageCount !== n) line += " " + tn("js.local.image_previews", imageCount);
       if (n > MAX_PREVIEW_THUMBS) {
-        line += ` — showing ${MAX_PREVIEW_THUMBS} thumbnails`;
+        line += " " + t("js.local.showing_thumbnails", { count: MAX_PREVIEW_THUMBS });
       }
       localPreviewCount.textContent = line;
     }
@@ -115,7 +116,7 @@
       pickFolderBtn.classList.toggle("is-active", mode === "folder");
       pickFolderBtn.setAttribute("aria-pressed", mode === "folder" ? "true" : "false");
     }
-    const labelStr = mode === "folder" ? "Choose folder" : "Choose files";
+    const labelStr = t(mode === "folder" ? "js.local.choose_folder" : "js.local.choose_files");
     if (fileLabelText) {
       fileLabelText.textContent = labelStr;
     }
