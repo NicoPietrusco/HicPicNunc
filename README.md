@@ -73,7 +73,7 @@ For a published desktop release, end users only sign in with their Google accoun
 
 ## Supported Formats
 
-JPEG, PNG, TIFF, BMP, WebP, HEIC, and HEIF are accepted. HEIC/HEIF support requires the optional `pillow-heif` dependency when running from source.
+JPEG, PNG, TIFF, BMP, WebP, HEIC, and HEIF are accepted. JPEG files keep their original image data; other formats are re-encoded to write the metadata (lossy formats such as HEIC and WebP at quality 95).
 
 ## Run From Source
 

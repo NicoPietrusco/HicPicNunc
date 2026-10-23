@@ -14,6 +14,7 @@ from PIL import Image, ImageCms
 from hicpicnunc.core.exif import (
     convert_to_degrees,
     exif_capture_timestamp,
+    load_exif_nested,
     process_image_extract_and_embed,
 )
 from hicpicnunc.core.metadata_fields import ExifFieldConfig, build_exif_field_config
@@ -120,6 +121,45 @@ def test_convert_to_degrees_handles_rationals_and_bad_input() -> None:
     assert convert_to_degrees((10, 30, 36)) == pytest.approx(10.51)
     assert convert_to_degrees(None) is None
     assert convert_to_degrees("garbage") is None
+
+
+CAPTURE = {
+    "0th": {piexif.ImageIFD.Make: b"Apple"},
+    "Exif": {piexif.ExifIFD.DateTimeOriginal: b"2021:07:08 09:10:11"},
+    "GPS": {
+        piexif.GPSIFD.GPSLatitudeRef: b"N",
+        piexif.GPSIFD.GPSLatitude: ((45, 1), (0, 1), (0, 1)),
+    },
+}
+
+
+@pytest.mark.parametrize("name", ["IMG.heic", "IMG.heif", "screenshot.png"])
+def test_capture_date_and_gps_survive_non_jpeg_formats(tmp_path: Path, name: str) -> None:
+    # PNG and HEIC go through Pillow; their Exif/GPS sub-IFDs used to be dropped.
+    src = tmp_path / name
+    Image.new("RGB", (16, 16)).save(src, exif=piexif.dump(CAPTURE))
+
+    result = _export(src, build_exif_field_config({}))
+    nested, _, _ = load_exif_nested(Path(result["output_image"]))
+
+    assert result["filesystem_date_set"]
+    assert nested["Exif"]["DateTimeOriginal"] == b"2021:07:08 09:10:11"
+    assert nested["GPS"]["GPSLatitudeRef"] == b"N"
+    assert nested["0th"]["Make"] == b"Apple"
+
+
+def test_rotated_heic_is_not_rotated_twice(tmp_path: Path) -> None:
+    src = tmp_path / "portrait.heic"
+    Image.new("RGB", (300, 200)).save(
+        src, exif=piexif.dump({"0th": {piexif.ImageIFD.Orientation: 6}})
+    )
+
+    out = Path(_export(src, build_exif_field_config({}))["output_image"])
+
+    # pillow-heif decodes upright pixels; the copy must not also carry Orientation=6.
+    with Image.open(out) as img:
+        assert img.size == (200, 300)
+        assert img.getexif().get(piexif.ImageIFD.Orientation, 1) == 1
 
 
 @pytest.fixture(scope="module")

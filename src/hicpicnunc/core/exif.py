@@ -15,7 +15,7 @@ from typing import Any
 
 import piexif
 from PIL import Image
-from PIL.ExifTags import GPSTAGS, TAGS
+from pillow_heif import register_heif_opener
 
 from ..log import get_logger
 from .metadata_fields import ExifFieldConfig, load_exif_field_config
@@ -23,6 +23,9 @@ from .metadata_fields import ExifFieldConfig, load_exif_field_config
 logger = get_logger(__name__)
 
 EXIF_DATE_FORMAT = "%Y:%m:%d %H:%M:%S"
+
+# Lets Pillow open HEIC/HEIF, the default format of iPhone photos.
+register_heif_opener()
 
 IFD_CLASS_MAP: dict[str, type] = {
     "0th": piexif.ImageIFD,
@@ -252,39 +255,15 @@ def nested_named_to_piexif_raw(nested: dict[str, dict[str, Any]]) -> dict[str, A
     return raw
 
 
-def _nested_from_pillow(image_path: Path) -> dict[str, dict[str, Any]]:
-    """Build nested IFD-shaped dict from Pillow getexif() when piexif cannot load."""
-    nested: dict[str, dict[str, Any]] = {}
-    with Image.open(image_path) as img:
-        ex = img.getexif()
-        if not ex:
-            return {}
-        for tag_id, val in ex.items():
-            name = TAGS.get(tag_id, f"Unknown_{tag_id}")
-            if name == "GPSInfo" and isinstance(val, dict):
-                gps_named: dict[str, Any] = {}
-                for gid, gval in val.items():
-                    gname = GPSTAGS.get(gid, f"GPS_{gid}")
-                    gps_named[gname] = gval
-                nested["GPS"] = gps_named
-            else:
-                eid = _tag_name_to_id(piexif.ExifIFD, name)
-                zid = _tag_name_to_id(piexif.ImageIFD, name)
-                if eid is not None:
-                    nested.setdefault("Exif", {})[name] = val
-                elif zid is not None:
-                    nested.setdefault("0th", {})[name] = val
-                else:
-                    nested.setdefault("0th", {})[name] = val
-    return {k: v for k, v in nested.items() if v}
-
-
 def load_exif_nested(
     image_path: Path,
 ) -> tuple[dict[str, dict[str, Any]], bool, dict[str, Any]]:
     """
     Load EXIF as nested IFD dict. Returns (nested, used_piexif, file_info).
-    Falls back to Pillow mapping if piexif cannot read the file.
+
+    piexif reads JPEG, TIFF and WebP files directly; for other formats (PNG, HEIC, ...)
+    Pillow extracts the raw EXIF block and piexif parses it, so the Exif and GPS
+    sub-IFDs (capture date, location) are kept.
     """
     with Image.open(image_path) as img:
         file_info = {
@@ -294,21 +273,17 @@ def load_exif_nested(
             "mode": img.mode,
             "size": img.size,
         }
+        exif_block = img.info.get("exif") or img.getexif().tobytes()
 
-    used_piexif = False
-    nested: dict[str, dict[str, Any]] = {}
-    try:
-        raw = piexif.load(str(image_path))
-        nested = piexif_raw_to_nested_named(raw)
-        if nested:
-            used_piexif = True
-    except Exception as e:
-        logger.debug(f"piexif.load failed for {image_path}, using Pillow: {e}")
-
-    if not nested:
-        nested = _nested_from_pillow(image_path)
-
-    return nested, used_piexif, file_info
+    for source in (str(image_path), exif_block):
+        try:
+            nested = piexif_raw_to_nested_named(piexif.load(source))
+        except Exception as e:
+            logger.debug("piexif could not read EXIF of {}: {}", image_path.name, e)
+            continue
+        if any(nested.values()):
+            return nested, True, file_info
+    return {}, False, file_info
 
 
 def extract_exif_data(
@@ -374,8 +349,8 @@ def _save_with_pillow(image_path: Path, output_path: Path, exif_bytes: bytes | N
         # Pillow only carries the color profile over for some formats (not WebP).
         if icc_profile := img.info.get("icc_profile"):
             save_kw["icc_profile"] = icc_profile
-        if image_path.suffix.lower() == ".webp":
-            save_kw["quality"] = 95
+        if image_path.suffix.lower() in {".webp", ".heic", ".heif"}:
+            save_kw["quality"] = 95  # lossy formats: libheif's default (50) visibly degrades
         img.save(output_path, format=img.format or "JPEG", **save_kw)
 
 
