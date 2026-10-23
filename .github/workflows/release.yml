@@ -60,6 +60,8 @@ jobs:
         with:
           # A cache written by PR runs must never feed a release build.
           enable-cache: false
+          # The minimum in required-version (pyproject.toml), as in quality.yml.
+          resolution-strategy: lowest
       - name: Install locked build tools
         run: uv sync --group dev --locked
       - name: Check the tag matches the package version
@@ -78,7 +80,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           uv run ruff check src/ tests/
-          uv run ty check src/
+          uv run ty check src/ tests/
           uv run pytest
       - name: Add the release OAuth client
         if: github.event_name != 'pull_request'

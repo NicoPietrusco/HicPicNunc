@@ -10,9 +10,10 @@ This guide covers the local development setup, project structure, checks, and wo
 
 You will need:
 
-* Python 3.11
-* [`uv`](https://docs.astral.sh/uv/)
+* [`uv`](https://docs.astral.sh/uv/) 0.12.18 or newer (the `required-version` in `pyproject.toml`)
 * [`just`](https://github.com/casey/just)
+
+You don't need to install Python: uv provides the version in `.python-version`.
 
 Clone the repository and enter the project directory:
 
@@ -27,7 +28,7 @@ Create the development environment and install dependencies:
 just setup
 ```
 
-This creates a Python 3.11 virtual environment and installs the development dependencies.
+This creates a virtual environment with the Python version in `.python-version`, downloading it if needed, and installs the development dependencies.
 
 Then install the git hooks once:
 
@@ -81,9 +82,9 @@ just check
 just test
 ```
 
-`just check` runs every hook on all files, exactly as the CI `checks` job does. The hooks are defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml) and run with [prek](https://github.com/j178/prek). Tools such as ruff, ty and zizmor come from `uv.lock`, so the versions are the same locally and in CI. `just lint`, `just typecheck` and `just lint-workflows` still run single tools.
+`just check` runs every hook on all files, exactly as the CI `checks` job does. The hooks are defined in [`.pre-commit-config.yaml`](.pre-commit-config.yaml) and run with [prek](https://github.com/j178/prek). Tools such as ruff, ty and zizmor come from `uv.lock`, so the versions are the same locally and in CI. ty checks both `src/` and `tests/`. `just lint`, `just typecheck` and `just lint-workflows` still run single tools.
 
-CI also measures test coverage and fails if it drops below the `fail_under` threshold in `pyproject.toml`. Run `just coverage` to see the same report locally, with an HTML version in `htmlcov/`. If your change adds code, add tests for it rather than lowering the threshold.
+CI runs the tests with the Python version in `.python-version` on Ubuntu, Windows and macOS, and with the other versions in the `pyproject.toml` classifiers on Ubuntu. It also measures test coverage and fails if it drops below the `fail_under` threshold in `pyproject.toml`. Run `just coverage` to see the same report locally, with an HTML version in `htmlcov/`. If your change adds code, add tests for it rather than lowering the threshold.
 
 If you change anything under `.github/`, pin new actions to a full commit SHA with the version as a comment (`uses: owner/action@<sha> # v1.2.3`), and set `persist-credentials: false` on `actions/checkout`.
 

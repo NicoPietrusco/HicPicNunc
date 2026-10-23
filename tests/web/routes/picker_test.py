@@ -161,7 +161,7 @@ def test_chunks_are_added_to_the_same_job(signed_in_client, monkeypatch, make_jp
 
     assert second["job_id"] == first["job_id"]
     # Same filenames in both chunks: duplicates are numbered, nothing is overwritten.
-    assert list_job_files(get_job_dir(first["job_id"])) == [
+    assert _job_files(first["job_id"]) == [
         "IMG_0 (2).jpg",
         "IMG_0.jpg",
         "IMG_1 (2).jpg",
@@ -245,8 +245,15 @@ def _post_batch(client, *items: dict) -> dict:
     return resp.get_json()
 
 
+def _job_files(job_id: str) -> list[str]:
+    job_dir = get_job_dir(job_id)
+    assert job_dir is not None
+    return list_job_files(job_dir)
+
+
 def _job_file(job_id: str, suffix: str) -> Path:
     job_dir = get_job_dir(job_id)
+    assert job_dir is not None
     return next(job_dir / n for n in list_job_files(job_dir) if n.endswith(suffix))
 
 
@@ -332,7 +339,7 @@ def test_interrupted_video_download_leaves_no_partial_file(signed_in_client, mon
     )
 
     assert body["errors"][0]["error"] == "connection reset"
-    assert list_job_files(get_job_dir(body["job_id"])) == []
+    assert _job_files(body["job_id"]) == []
 
 
 def test_photo_without_exif_date_uses_google_create_time(

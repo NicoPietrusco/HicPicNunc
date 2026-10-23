@@ -42,8 +42,7 @@ package-macos: package
 
 [group('Setup')]
 setup:
-    @echo "Creating venv (Python 3.11)..."
-    uv venv --python python3.11 .venv
+    @echo "Creating venv (Python from .python-version) and installing dependencies..."
     uv sync --group dev
     @echo "Done."
 
@@ -68,7 +67,7 @@ lint-workflows:
 
 [group('Quality')]
 typecheck:
-    uv run ty check src/
+    uv run ty check src/ tests/
 
 [group('Quality')]
 test:

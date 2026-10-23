@@ -24,6 +24,9 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
+          # The minimum in required-version (pyproject.toml), so an old uv that breaks on uv.lock
+          # fails here.
+          resolution-strategy: lowest
       - name: Install locked development tools
         run: uv sync --group dev --locked
       - name: Run hooks (lint, format, types, lock file, workflow audit)
@@ -33,12 +36,21 @@ jobs:
         run: uv run --frozen prek run --all-files --show-diff-on-failure
 
   tests:
-    name: tests (${{ matrix.os }})
+    name: tests (${{ matrix.os }}${{ matrix.python && format(', {0}', matrix.python) || '' }})
     strategy:
       fail-fast: false
       matrix:
         # Same platforms as the desktop releases, so OS-specific failures show up in PRs.
         os: [ubuntu-latest, windows-2022, macos-14]
+        # Empty means .python-version and keeps the job names above, which are required checks.
+        # As a matrix axis, it makes the entries below new jobs, not merged into ubuntu-latest.
+        python: [""]
+        # The other Python versions in the classifiers, on Ubuntu only.
+        include:
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: ubuntu-latest
+            python: "3.13"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,6 +59,10 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: true
+          # The minimum in required-version (pyproject.toml), so an old uv that breaks on uv.lock
+          # fails here.
+          resolution-strategy: lowest
+          python-version: ${{ matrix.python }}
       - name: Install locked development tools
         run: uv sync --group dev --locked
       - name: Test with coverage
