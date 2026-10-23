@@ -37,8 +37,10 @@ def test_refreshed_token_is_persisted(app, credentials, monkeypatch, data_dir) -
     monkeypatch.setattr(type(credentials), "refresh", fake_refresh)
 
     with app.test_request_context("/", headers={"Cookie": f"{web_session.COOKIE_NAME}=sid"}):
-        creds, data = web_session.creds_for_request()
+        result = web_session.creds_for_request()
 
+    assert result is not None
+    creds, data = result
     assert creds.token == "new-token"
     assert "new-token" in data.credentials_json
     assert "new-token" in (data_dir / "credentials" / "google_token.json").read_text()

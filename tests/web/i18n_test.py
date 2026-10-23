@@ -139,9 +139,11 @@ def test_page_receives_the_script_strings(app) -> None:
     with app.test_request_context(headers={"Accept-Language": "it"}):
         catalog = js_catalog()
 
+    strings = catalog["strings"]
+    assert isinstance(strings, dict)
     assert catalog["lang"] == "it"
-    assert catalog["strings"]["js.picker.exporting"] == "Esportazione in corso…"
-    assert all(key.startswith("js.") for key in catalog["strings"])
+    assert strings["js.picker.exporting"] == "Esportazione in corso…"
+    assert all(key.startswith("js.") for key in strings)
 
 
 def test_plural_forms_follow_the_count(app) -> None:

@@ -13,7 +13,7 @@ from hicpicnunc.web.routes.jobs import categorize_job_files
 AJAX = {"Accept": "application/json", "X-Requested-With": "XMLHttpRequest"}
 
 
-def _upload(client, files: list[tuple[bytes, str]], **form: str):
+def _upload(client, files: list[tuple[bytes, str]], **form: str | list[str]):
     data: dict = {"file": [(io.BytesIO(b), name) for b, name in files], **form}
     return client.post("/upload", data=data, headers=AJAX)
 

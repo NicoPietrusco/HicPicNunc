@@ -513,8 +513,8 @@ dev = [
     { name = "pyinstaller", specifier = ">=6.0.0" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "ruff", specifier = ">=0.1.0" },
-    { name = "ty", specifier = ">=0.0.1" },
+    { name = "ruff", specifier = ">=0.17.0" },
+    { name = "ty", specifier = ">=0.0.87" },
     { name = "zizmor", specifier = ">=1.30.1" },
 ]
 

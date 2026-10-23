@@ -158,7 +158,7 @@ def test_session_ids_are_url_escaped() -> None:
 
 
 def test_transform_picker_items_shapes_items_for_the_frontend() -> None:
-    raw = {
+    raw: dict[str, list[dict[str, Any]]] = {
         "mediaItems": [
             {
                 "id": "m1",

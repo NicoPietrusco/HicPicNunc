@@ -62,16 +62,14 @@ def test_revoke_token_network_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     assert oauth.revoke_token("tok-123") is False
 
 
-def test_revoke_credentials_prefers_refresh_token(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_revoke_credentials_prefers_refresh_token(
+    monkeypatch: pytest.MonkeyPatch, credentials
+) -> None:
     revoked: list[str] = []
     monkeypatch.setattr(oauth, "revoke_token", lambda tok: revoked.append(tok) or True)
 
-    class DummyCreds:
-        token = "access-tok"
-        refresh_token = "refresh-tok"
-
-    assert oauth.revoke_credentials(DummyCreds()) is True
-    assert revoked == ["refresh-tok"]
+    assert oauth.revoke_credentials(credentials) is True
+    assert revoked == ["refresh-token"]
 
 
 def test_extract_verified_email_from_account(credentials) -> None:
