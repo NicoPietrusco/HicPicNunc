@@ -26,16 +26,12 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "google-auth>=2.0.0",
     "google-auth-oauthlib>=1.2.0",
+    "pillow-heif>=1.1.1",
     # cryptography 49+ ships no Intel macOS wheels; built from source, it links an
     # OpenSSL that PyInstaller can't bundle and the app crashes at startup. The
     # second line keeps uv from settling on 48 for every platform.
     "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "cryptography>=50; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-]
-
-[project.optional-dependencies]
-heic = [
-    "pillow-heif>=0.15.0",
 ]
 
 [project.scripts]

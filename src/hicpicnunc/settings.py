@@ -15,7 +15,7 @@ class Settings:
     # Shown in the web UI
     APP_NAME = "Hic Pic Nunc"
 
-    # Accepted image extensions (HEIC/HEIF need the optional pillow-heif)
+    # Accepted image extensions
     SUPPORTED_FORMATS = frozenset(
         {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp", ".heic", ".heif"}
     )
