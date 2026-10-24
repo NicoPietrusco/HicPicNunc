@@ -112,7 +112,10 @@ def test_unreadable_image_reports_an_error(tmp_path: Path) -> None:
     src = tmp_path / "broken.jpg"
     src.write_bytes(b"not an image")
 
-    assert "error" in _export(src, build_exif_field_config({}))
+    result = _export(src, build_exif_field_config({}))
+
+    assert result["error_code"] == "unreadable"
+    assert str(tmp_path) not in result["error"]  # no temporary path in what users see
 
 
 def test_convert_to_degrees_handles_rationals_and_bad_input() -> None:

@@ -75,6 +75,48 @@ def test_upload_leaves_no_staged_copies(client, make_jpeg, data_dir) -> None:
     assert list((data_dir / "data" / "uploads").iterdir()) == []
 
 
+def test_chunked_upload_lands_in_one_job(client, make_jpeg) -> None:
+    src = make_jpeg().read_bytes()
+
+    first = _upload(client, [(src, "a.jpg")], relative_paths=["trip/a.jpg"]).get_json()
+    second = _upload(
+        client,
+        [(src, "a.jpg")],
+        relative_paths=["trip/a.jpg"],
+        job_id=first["job_id"],
+        offset="1",
+    ).get_json()
+
+    assert second["job_id"] == first["job_id"]
+    page = client.get(first["job_url"]).get_data(as_text=True)
+    assert "trip/a.jpg" in page
+    assert "trip/a (2).jpg" in page  # same name as in the first chunk: numbered
+
+
+def test_failed_chunk_still_returns_its_job(client) -> None:
+    body = _upload(client, [(b"not really a jpeg", "broken.jpg")]).get_json()
+
+    assert body["ok"] is False
+    assert client.get(f"/job/{body['job_id']}").status_code == 200
+
+
+def test_upload_rejects_unknown_jobs(client, make_jpeg) -> None:
+    resp = _upload(
+        client,
+        [(make_jpeg().read_bytes(), "IMG.jpg")],
+        job_id="0f8fad5b-d9cb-469f-a165-70867728950e",
+    )
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.parametrize("offset", ["-1", "two", ""])
+def test_upload_rejects_invalid_offsets(client, make_jpeg, offset: str) -> None:
+    resp = _upload(client, [(make_jpeg().read_bytes(), "IMG.jpg")], offset=offset)
+
+    assert resp.status_code == 400
+
+
 def test_upload_rejects_unsupported_files(client) -> None:
     resp = _upload(client, [(b"GIF89a", "anim.gif")])
 
@@ -103,6 +145,31 @@ def test_result_page_lists_the_job_files(client, make_jpeg) -> None:
 
     assert "IMG.jpg" in page
     assert f"/job/{body['job_id']}/download-all" in page
+
+
+def test_result_page_lists_the_files_that_failed(client, make_jpeg, monkeypatch) -> None:
+    monkeypatch.setenv("MAX_UPLOAD_MB", "20")
+    src = make_jpeg().read_bytes()
+    first = _upload(
+        client,
+        [(src, "a.jpg"), (b"not really a jpeg", "broken.jpg")],
+        relative_paths=["trip/a.jpg", "trip/broken.jpg"],
+        too_large=["trip/panorama.tif"],
+    ).get_json()
+    _upload(
+        client,
+        [(b"not a jpeg either", "c.jpg")],
+        relative_paths=["trip/c.jpg"],
+        job_id=first["job_id"],
+        offset="2",
+    )
+
+    page = client.get(first["job_url"]).get_data(as_text=True)  # no ?failed=: counted here
+
+    assert "3 items couldn" in page
+    assert "trip/panorama.tif</span> — larger than the 20 MB limit" in page
+    assert "trip/broken.jpg</span> — not a readable image" in page
+    assert "trip/c.jpg</span>" in page
 
 
 @pytest.mark.parametrize(

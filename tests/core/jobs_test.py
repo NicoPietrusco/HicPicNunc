@@ -18,8 +18,10 @@ from hicpicnunc.core.jobs import (
     is_video_file,
     iter_job_zip,
     list_job_files,
+    load_failures,
     new_job,
     prune_expired_jobs,
+    record_failures,
     resolve_job_file,
     set_file_date,
     staged_file,
@@ -85,6 +87,28 @@ def test_prune_removes_only_expired_job_entries(data_dir: Path) -> None:
     assert not old_dir.exists() and not leftover.exists()
     assert fresh_dir.is_dir()
     assert stranger.is_dir()  # not named after a job: never deleted
+
+
+def test_failures_accumulate_outside_the_job_folder(data_dir: Path) -> None:
+    job_id, job_dir = new_job()
+
+    record_failures(job_id, [{"name": "a.jpg", "error": "broken"}])
+    record_failures(job_id, [])
+    record_failures(job_id, [{"name": "b.jpg", "error": "too large"}])
+
+    assert [f["name"] for f in load_failures(job_id)] == ["a.jpg", "b.jpg"]
+    assert list_job_files(job_dir) == []  # never zipped with the photos
+
+
+def test_failures_are_pruned_with_their_job(data_dir: Path) -> None:
+    job_id, job_dir = new_job()
+    record_failures(job_id, [{"name": "a.jpg", "error": "broken"}])
+    _age(job_dir, 48)
+    _age(data_dir / "data" / "outputs" / f"{job_id}.failed.json", 48)
+
+    prune_expired_jobs(max_age_hours=24)
+
+    assert load_failures(job_id) == []
 
 
 def test_retention_period_comes_from_the_environment(data_dir: Path, monkeypatch) -> None:

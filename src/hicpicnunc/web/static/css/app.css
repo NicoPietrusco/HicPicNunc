@@ -509,7 +509,7 @@ kbd {
   margin-bottom: 1rem;
 }
 
-.picker-google-card .export-progress {
+.export-progress {
   margin: 0 0 1rem;
   padding: 0.875rem 1rem;
   border: 1px solid var(--border);
@@ -577,6 +577,23 @@ kbd {
   color: #92400e;
 }
 
+.job-failed-notice p {
+  margin: 0;
+}
+
+.job-failed-list {
+  max-height: 12rem;
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  overflow-y: auto;
+  font-size: 0.875rem;
+}
+
+.job-failed-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .photos-container {
   margin-top: 1rem;
   padding: 1rem 0 0;
@@ -598,7 +615,8 @@ kbd {
   justify-content: flex-start;
 }
 
-#status.status {
+#status.status,
+#local-status.status {
   display: none;
   max-width: none;
   margin: 0 0 1rem;
