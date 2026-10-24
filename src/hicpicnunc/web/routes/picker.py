@@ -92,7 +92,7 @@ def create_session():
         logger.exception("create-session")
         return jsonify({"detail": str(e)}), 502
     pdata.picker_session_id = result.get("id")
-    pdata.fresh_urls, pdata.fresh_urls_at = {}, 0.0
+    pdata.fresh_urls, pdata.fresh_urls_at, pdata.fresh_urls_failed_at = {}, 0.0, 0.0
     logger.info(
         "Picker session {} created; Google expires it at {}",
         str(result.get("id"))[:8],
@@ -263,6 +263,17 @@ def _export_item(
 # Listing the selection again costs a request per 100 items, so new URLs are kept for later
 # chunks. A URL refreshed this recently that still fails isn't expired: listing won't help.
 URL_REFRESH_INTERVAL = 5 * 60
+# After a failed listing (network, Google), the next items fail at once for this long
+# instead of each trying again.
+URL_REFRESH_RETRY_DELAY = 30
+
+_LINK_REFUSED = "Google refused the download link"
+_NO_NEW_LINK = "Could not get a new download link"
+
+
+def _short(item_id: str | None) -> str:
+    """Item ids run to ~90 characters and share a prefix: their end is enough in logs."""
+    return f"…{item_id[-8:]}" if item_id else "without id"
 
 
 def _fresh_url(creds, pdata: PickerSessionData, item_id: str) -> str | None:
@@ -278,7 +289,7 @@ def _fresh_url(creds, pdata: PickerSessionData, item_id: str) -> str | None:
         )
     url = pdata.fresh_urls.get(item_id)
     if url is None:
-        logger.warning("Item {} is no longer in the selection", item_id)
+        logger.warning("Item {} is no longer in the selection", _short(item_id))
     return url
 
 
@@ -298,18 +309,27 @@ def _export_with_fresh_url(
     try:
         return export(base_url)
     except MediaUrlExpiredError as e:
-        logger.info("Download link of item {} refused ({}); getting a new one", item_id, e)
+        logger.info("Download link of item {} refused ({}); getting a new one", _short(item_id), e)
+    if not item_id:
+        return _LINK_REFUSED
+    if time.time() - pdata.fresh_urls_failed_at < URL_REFRESH_RETRY_DELAY:
+        return _NO_NEW_LINK
     try:
-        fresh = _fresh_url(creds, pdata, item_id) if item_id else None
-    except requests.RequestException as e:  # Google or network trouble: this item only
-        logger.warning("Could not get a new download link for item {}: {}", item_id, e)
-        return "Could not get a new download link"
+        fresh = _fresh_url(creds, pdata, item_id)
+    except requests.RequestException as e:  # Google or network trouble: these items only
+        pdata.fresh_urls_failed_at = time.time()
+        logger.warning(
+            "Could not list the selection again ({}); retrying in {}s",
+            e,
+            URL_REFRESH_RETRY_DELAY,
+        )
+        return _NO_NEW_LINK
     if not fresh or fresh == base_url or not is_google_media_url(fresh):
-        return "Google refused the download link"
+        return _LINK_REFUSED
     try:
         return export(fresh)
     except MediaUrlExpiredError:
-        return "Google refused the download link"
+        return _LINK_REFUSED
 
 
 @bp.post("/api/process-google-batch")

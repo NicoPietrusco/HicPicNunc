@@ -294,20 +294,27 @@ def test_items_without_an_id_are_not_refreshed(signed_in_client, monkeypatch, ma
     assert calls["listings"] == []
 
 
-def test_failing_to_list_again_only_fails_that_item(
+def test_failing_to_list_again_fails_items_without_retrying_at_once(
     signed_in_client, monkeypatch, make_jpeg
 ) -> None:
     _expiring_downloads(monkeypatch, make_jpeg().read_bytes(), {})
+    listings = []
 
     def google_down(creds, session_id: str):
-        raise requests.HTTPError("HTTP 503")
+        listings.append(session_id)
+        raise requests.ConnectionError("Failed to resolve 'photospicker.googleapis.com'")
 
     monkeypatch.setattr(picker, "fresh_base_urls", google_down)
 
-    resp = signed_in_client.post("/api/process-google-batch", json={"items": _items_with_ids("a")})
+    resp = signed_in_client.post(
+        "/api/process-google-batch", json={"items": _items_with_ids("a", "b", "c")}
+    )
 
     assert resp.status_code == 500  # nothing exported, but answered as JSON, not a crash
-    assert resp.get_json()["errors"][0]["error"] == "Could not get a new download link"
+    assert [e["error"] for e in resp.get_json()["errors"]] == [
+        "Could not get a new download link"
+    ] * 3
+    assert listings == ["picker-1"]  # one attempt, not one per item
 
 
 def test_an_expired_selection_stops_the_export(signed_in_client, monkeypatch, make_jpeg) -> None:

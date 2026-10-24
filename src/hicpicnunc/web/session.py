@@ -28,6 +28,7 @@ class PickerSessionData:
     # baseUrls listed again after the first ones expired (see routes.picker), by item id.
     fresh_urls: dict[str, str] = field(default_factory=dict)
     fresh_urls_at: float = 0.0
+    fresh_urls_failed_at: float = 0.0
 
 
 picker_sessions: dict[str, PickerSessionData] = {}
