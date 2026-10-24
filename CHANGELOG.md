@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.0...v0.4.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* get new Picker download links when they expire ([#95](https://github.com/NicoPietrusco/HicPicNunc/issues/95)) ([d8e9657](https://github.com/NicoPietrusco/HicPicNunc/commit/d8e9657526b57d5a76c1311c639d1bb5d4269dd5))
+* restore dates on large folders by uploading in chunks ([#93](https://github.com/NicoPietrusco/HicPicNunc/issues/93)) ([72ddd58](https://github.com/NicoPietrusco/HicPicNunc/commit/72ddd58371baaab13ed2719ce54ebd72a5710ae9))
+
 ## [0.4.0](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.3.0...v0.4.0) (2026-10-18)
 
 
