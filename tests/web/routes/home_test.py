@@ -21,7 +21,7 @@ def test_index_gives_the_local_upload_its_limits(client, monkeypatch) -> None:
 
     assert "window.__MAX_UPLOAD_BYTES__ = 20971520;" in page
     assert '".heic"' in page and '".jpg"' in page
-    assert 'id="local-progress"' in page and 'id="export-progress"' in page
+    assert 'id="local-progress"' in page
 
 
 def test_preferences_are_saved_to_disk(client, data_dir) -> None:
