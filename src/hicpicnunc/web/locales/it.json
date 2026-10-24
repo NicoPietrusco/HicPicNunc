@@ -160,6 +160,7 @@
   "js.picker.signed_in_as": "Accesso effettuato come {email} ·",
   "js.picker.signed_in_no_email": "Accesso effettuato ·",
   "js.picker.session_expired": "La sessione Google è scaduta. Accedi di nuovo per scegliere le foto.",
+  "js.picker.selection_expired": "La selezione è scaduta. Scegli di nuovo le foto per esportarle.",
 
   "js.progress.less_than_a_minute_left": "manca meno di un minuto",
   "js.progress.minutes_left": {

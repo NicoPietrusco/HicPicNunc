@@ -1,7 +1,7 @@
 // Google Photos Picker — local desktop OAuth (server session); no GIS / no Bearer from the browser
 const { t, tn } = window.i18n;
 let authenticated = false;
-/** @type {{ base_url: string, filename: string, type: ?string, mime_type: ?string, create_time: ?string, processing_status: ?string }[]} */
+/** @type {{ id: ?string, base_url: string, filename: string, type: ?string, mime_type: ?string, create_time: ?string, processing_status: ?string }[]} */
 let loadedPickerItems = [];
 
 function showStatus(message, type) {
@@ -42,6 +42,7 @@ function itemToPayload(item) {
         (item.mediaFile && item.mediaFile.filename) ||
         'photo.jpg';
     return {
+        id: item.id || null, // lets the server get a new base_url once this one expires
         base_url: baseUrl,
         filename,
         type: item.type || null,
@@ -100,6 +101,11 @@ async function exportChunk(chunk, jobId, includeJson) {
         }),
     });
     const data = await r.json().catch(() => ({}));
+    if (data.code === 'selection_expired') {
+        const error = new Error(t('js.picker.selection_expired'));
+        error.selectionExpired = true;
+        throw error;
+    }
     if (!r.ok && !data.job_id) throw new Error(data.detail || data.error || r.statusText);
     return data;
 }
@@ -160,7 +166,10 @@ async function extractAllExif() {
     } catch (e) {
         window.removeEventListener('beforeunload', warnBeforeLeaving);
         progress.hide();
-        showStatus(t('js.progress.failed_after', { done, total, message: e.message }), 'error');
+        const message = e.selectionExpired
+            ? e.message
+            : t('js.progress.failed_after', { done, total, message: e.message });
+        showStatus(message, 'error');
         if (btn) btn.disabled = false;
         if (pickerBtn) pickerBtn.disabled = false;
         return;

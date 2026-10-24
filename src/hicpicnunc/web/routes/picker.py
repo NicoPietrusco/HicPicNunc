@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -20,10 +23,13 @@ from ...core.jobs import (
 )
 from ...core.metadata_fields import ExifFieldConfig, load_user_exif_field_config
 from ...google_photos.picker import (
+    MediaUrlExpiredError,
+    PickerSessionExpiredError,
     create_picker_session,
     download_media_bytes,
     download_video_to,
     ensure_fresh,
+    fresh_base_urls,
     get_picker_session,
     is_google_media_host,
     is_google_media_url,
@@ -34,7 +40,7 @@ from ...google_photos.picker import (
 from ...log import get_logger
 from ...settings import settings
 from ..forms import parse_bool
-from ..session import creds_for_request
+from ..session import PickerSessionData, creds_for_request
 
 logger = get_logger(__name__)
 
@@ -86,6 +92,12 @@ def create_session():
         logger.exception("create-session")
         return jsonify({"detail": str(e)}), 502
     pdata.picker_session_id = result.get("id")
+    pdata.fresh_urls, pdata.fresh_urls_at, pdata.fresh_urls_failed_at = {}, 0.0, 0.0
+    logger.info(
+        "Picker session {} created; Google expires it at {}",
+        str(result.get("id"))[:8],
+        result.get("expireTime") or "an unstated time",
+    )
     pdata.credentials_json = creds.to_json()
     poll = (result.get("pollingConfig") or {}).get("pollInterval", "5s")
     return jsonify(
@@ -160,6 +172,8 @@ def _export_photo(
     """Download a photo and write the filtered-EXIF copy. Returns an error message or None."""
     try:
         raw = download_media_bytes(base_url, access_token)
+    except MediaUrlExpiredError:
+        raise
     except Exception as e:
         return str(e)
     name = safe_filename(filename, "photo.jpg")
@@ -210,9 +224,112 @@ def _export_video(
         partial.replace(output)
     except Exception as e:
         partial.unlink(missing_ok=True)
+        if isinstance(e, MediaUrlExpiredError):
+            raise
         return str(e)
     set_file_date(output, create_time)
     return None
+
+
+def _export_item(
+    base_url: str,
+    *,
+    item: dict,
+    index: int,
+    filename: str,
+    access_token: str,
+    job_id: str,
+    job_out: Path,
+    field_config: ExifFieldConfig,
+    include_json: bool,
+    create_time: str | None,
+) -> str | None:
+    """Export one picked photo or video from base_url. Returns an error message or None."""
+    if is_video(item.get("type"), item.get("mime_type")):
+        return _export_video(item, filename, base_url, access_token, job_out, create_time)
+    return _export_photo(
+        index,
+        filename,
+        base_url,
+        access_token,
+        job_id,
+        job_out,
+        field_config,
+        include_json,
+        create_time,
+    )
+
+
+# Listing the selection again costs a request per 100 items, so new URLs are kept for later
+# chunks. A URL refreshed this recently that still fails isn't expired: listing won't help.
+URL_REFRESH_INTERVAL = 5 * 60
+# After a failed listing (network, Google), the next items fail at once for this long
+# instead of each trying again.
+URL_REFRESH_RETRY_DELAY = 30
+
+_LINK_REFUSED = "Google refused the download link"
+_NO_NEW_LINK = "Could not get a new download link"
+
+
+def _short(item_id: str | None) -> str:
+    """Item ids run to ~90 characters and share a prefix: their end is enough in logs."""
+    return f"…{item_id[-8:]}" if item_id else "without id"
+
+
+def _fresh_url(creds, pdata: PickerSessionData, item_id: str) -> str | None:
+    """New baseUrl for item_id, listing the selection again unless done recently."""
+    if time.time() - pdata.fresh_urls_at > URL_REFRESH_INTERVAL and pdata.picker_session_id:
+        started = time.time()
+        pdata.fresh_urls = fresh_base_urls(creds, pdata.picker_session_id)
+        pdata.fresh_urls_at = time.time()
+        logger.info(
+            "Listed the selection again: {} new download links in {:.1f}s",
+            len(pdata.fresh_urls),
+            pdata.fresh_urls_at - started,
+        )
+    url = pdata.fresh_urls.get(item_id)
+    if url is None:
+        logger.warning("Item {} is no longer in the selection", _short(item_id))
+    return url
+
+
+def _export_with_fresh_url(
+    export: Callable[[str], str | None],
+    base_url: str,
+    item_id: str | None,
+    creds,
+    pdata: PickerSessionData,
+) -> str | None:
+    """
+    Export from base_url; if Google refuses it as expired, retry once with a new URL.
+
+    Returns an error message or None. Raises PickerSessionExpiredError when the selection
+    can't be listed again.
+    """
+    try:
+        return export(base_url)
+    except MediaUrlExpiredError as e:
+        logger.info("Download link of item {} refused ({}); getting a new one", _short(item_id), e)
+    if not item_id:
+        return _LINK_REFUSED
+    if time.time() - pdata.fresh_urls_failed_at < URL_REFRESH_RETRY_DELAY:
+        return _NO_NEW_LINK
+    try:
+        fresh = _fresh_url(creds, pdata, item_id)
+    except requests.RequestException as e:  # Google or network trouble: these items only
+        pdata.fresh_urls_failed_at = time.time()
+        logger.warning(
+            "Could not list the selection again ({}); retrying in {}s",
+            e,
+            URL_REFRESH_RETRY_DELAY,
+        )
+        return _NO_NEW_LINK
+    if not fresh or fresh == base_url or not is_google_media_url(fresh):
+        return _LINK_REFUSED
+    try:
+        return export(fresh)
+    except MediaUrlExpiredError:
+        return _LINK_REFUSED
 
 
 @bp.post("/api/process-google-batch")
@@ -224,6 +341,10 @@ def process_batch():
     the job, later ones pass its job_id plus the offset of their first item in the whole
     selection, so error indexes refer to the whole selection. Files keep their Google
     Photos name; a name already in the job gets " (2)", " (3)"...
+
+    Download URLs expire an hour after the selection is listed: items that carry their
+    media item id are then downloaded again with a new URL. If the picker session itself
+    has expired, the export stops with code "selection_expired".
     """
     pair = creds_for_request()
     if not pair:
@@ -272,20 +393,35 @@ def process_batch():
 
         raw_time = it.get("create_time")
         create_time = raw_time if isinstance(raw_time, str) else None
-        if is_video(it.get("type"), it.get("mime_type")):
-            error = _export_video(it, filename, base_url, access_token, job_out, create_time)
-        else:
-            error = _export_photo(
-                i,
-                filename,
-                base_url,
-                access_token,
-                job_id,
-                job_out,
-                field_config,
-                include_json,
-                create_time,
-            )
+        raw_id = it.get("id")
+        item_id = raw_id if isinstance(raw_id, str) and raw_id else None
+        if item_id in pdata.fresh_urls:  # an earlier chunk already got a new URL
+            base_url = pdata.fresh_urls[item_id]
+
+        export = partial(
+            _export_item,
+            item=it,
+            index=i,
+            filename=filename,
+            access_token=access_token,
+            job_id=job_id,
+            job_out=job_out,
+            field_config=field_config,
+            include_json=include_json,
+            create_time=create_time,
+        )
+        try:
+            error = _export_with_fresh_url(export, base_url, item_id, creds, pdata)
+        except PickerSessionExpiredError:
+            logger.warning("Picker session expired; export stopped after {} item(s)", processed)
+            return jsonify(
+                {
+                    "ok": False,
+                    "code": "selection_expired",
+                    "detail": "The Google Photos selection expired",
+                    "processed": processed,
+                }
+            ), 410
         if error:
             errors.append({"index": i, "filename": filename, "error": error})
         else:
