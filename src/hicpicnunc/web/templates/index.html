@@ -1,4 +1,14 @@
 {% extends "base.html" %}
+{% macro progress_box(prefix) %}
+<div id="{{ prefix }}-progress" class="export-progress" hidden>
+  <div class="export-progress-row">
+    <span id="{{ prefix }}-progress-label" aria-live="polite">{{ t('google.progress_saving') }}</span>
+    <span id="{{ prefix }}-progress-count" class="export-progress-count"></span>
+  </div>
+  <progress id="{{ prefix }}-progress-bar" value="0" max="1" aria-labelledby="{{ prefix }}-progress-label"></progress>
+  <p id="{{ prefix }}-progress-detail" class="export-progress-detail">{{ t('google.keep_open') }}</p>
+</div>
+{% endmacro %}
 {% block body %}
 <main class="home-workspace">
   <section class="workspace-intro">
@@ -7,6 +17,7 @@
     <p>{{ t('home.intro') }}</p>
   </section>
 
+  <script src="{{ url_for('static', filename='js/progress.js') }}"></script>
   <div class="source-stack">
 <section class="source-panel source-panel--google" aria-labelledby="google-source-title">
   <header class="source-panel-header">
@@ -36,14 +47,7 @@
       <button class="btn-link btn-signout" type="button" onclick="signOut()" id="signout-btn">{{ t('google.sign_out') }}</button>
     </div>
     <div id="status" class="status" aria-live="polite"></div>
-    <div id="export-progress" class="export-progress" hidden>
-      <div class="export-progress-row">
-        <span id="export-progress-label" aria-live="polite">{{ t('google.progress_saving') }}</span>
-        <span id="export-progress-count" class="export-progress-count"></span>
-      </div>
-      <progress id="export-progress-bar" value="0" max="1" aria-labelledby="export-progress-label"></progress>
-      <p id="export-progress-detail" class="export-progress-detail">{{ t('google.keep_open') }}</p>
-    </div>
+    {{ progress_box('export') }}
     <div id="photos-container" class="photos-container">
       <div class="photos-header">
         <h2>{{ t('google.selection_title') }}</h2>
@@ -112,11 +116,15 @@
     </div>
     {% set suffix %}<code id="local-suffix-value">{{ settings.web_output_image_suffix or '_exif' }}</code>{% endset %}
     <p class="local-hint muted">{{ t('local.suffix_hint_html', suffix=suffix) }}</p>
+    <div id="local-status" class="status" aria-live="polite"></div>
+    {{ progress_box('local') }}
     <div class="form-row local-actions">
       <button type="submit" class="btn btn-secondary has-tooltip" id="local-submit" data-tooltip="{{ t('local.submit_tooltip') }}">{{ t('local.submit') }}</button>
     </div>
   </form>
   <script>window.__LOCAL_SUFFIX__ = {{ settings.web_output_image_suffix | tojson }};</script>
+  <script>window.__MAX_UPLOAD_BYTES__ = {{ settings.max_upload_mb * 1024 * 1024 }};</script>
+  <script>window.__IMAGE_EXTENSIONS__ = {{ settings.SUPPORTED_FORMATS | sort | tojson }};</script>
   <script src="{{ url_for('static', filename='js/local_upload.js') }}" defer></script>
 </section>
  </details>

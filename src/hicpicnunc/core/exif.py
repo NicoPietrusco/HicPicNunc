@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import piexif
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from PIL.ExifTags import GPSTAGS, TAGS
 
 from ..log import get_logger
@@ -361,6 +361,10 @@ def extract_exif_data(
             "exif_fields_count": total_fields,
             "nested_filtered": filtered,
         }
+    except UnidentifiedImageError:
+        # Pillow's message names the staged copy's temporary path, which means nothing to
+        # the user: callers show their own text for this code.
+        return {"error": "Not a readable image", "error_code": "unreadable"}
     except Exception as e:
         return {"error": f"Failed: {e}"}
 

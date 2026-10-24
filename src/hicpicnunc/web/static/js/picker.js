@@ -87,53 +87,6 @@ function setLoadedPickerItems(items) {
 const EXPORT_CHUNK_SIZE = 3;
 const EXPORT_PARALLEL_REQUESTS = 3;
 
-function warnBeforeLeaving(event) {
-    event.preventDefault();
-    event.returnValue = '';
-}
-
-function formatRemaining(seconds) {
-    if (seconds < 60) return t('js.picker.less_than_a_minute_left');
-    return tn('js.picker.minutes_left', Math.round(seconds / 60));
-}
-
-function exportProgress(total) {
-    const box = document.getElementById('export-progress');
-    const bar = document.getElementById('export-progress-bar');
-    const label = document.getElementById('export-progress-label');
-    const count = document.getElementById('export-progress-count');
-    const detail = document.getElementById('export-progress-detail');
-    const startedAt = Date.now();
-    bar.max = total;
-    bar.value = 0;
-    label.textContent = t('js.picker.exporting');
-    count.textContent = t('js.picker.progress_count', { done: 0, total });
-    detail.textContent = t('js.picker.keep_open');
-    box.hidden = false;
-    return {
-        update(done, failed) {
-            bar.value = done;
-            count.textContent = t('js.picker.progress_count', { done, total });
-            const parts = [];
-            if (failed) parts.push(tn('js.picker.failed_part', failed));
-            if (done >= EXPORT_CHUNK_SIZE && done < total) {
-                const perPhoto = (Date.now() - startedAt) / 1000 / done;
-                parts.push(formatRemaining(perPhoto * (total - done)));
-            }
-            parts.push(t('js.picker.keep_open_part'));
-            const text = parts.join(' · ');
-            detail.textContent = text.charAt(0).toUpperCase() + text.slice(1) + '.';
-        },
-        finish() {
-            label.textContent = t('js.picker.opening_files');
-            detail.textContent = '';
-        },
-        hide() {
-            box.hidden = true;
-        },
-    };
-}
-
 /** POST one chunk. A 500 that still names the job means only this chunk's items failed. */
 async function exportChunk(chunk, jobId, includeJson) {
     const r = await fetch('/api/process-google-batch', {
@@ -170,7 +123,10 @@ async function extractAllExif() {
     if (btn) btn.disabled = true;
     if (pickerBtn) pickerBtn.disabled = true;
     hideStatus();
-    const progress = exportProgress(total);
+    const progress = exportProgress('export', total, {
+        label: t('js.picker.exporting'),
+        etaAfter: EXPORT_CHUNK_SIZE,
+    });
     window.addEventListener('beforeunload', warnBeforeLeaving);
 
     let done = 0;
@@ -204,7 +160,7 @@ async function extractAllExif() {
     } catch (e) {
         window.removeEventListener('beforeunload', warnBeforeLeaving);
         progress.hide();
-        showStatus(t('js.picker.failed_after', { done, total, message: e.message }), 'error');
+        showStatus(t('js.progress.failed_after', { done, total, message: e.message }), 'error');
         if (btn) btn.disabled = false;
         if (pickerBtn) pickerBtn.disabled = false;
         return;

@@ -102,6 +102,8 @@
   "job.json_details": "JSON detail files ({count}) — tap to expand",
   "job.other_details": "Other files ({count})",
   "job.empty": "No files found in this folder.",
+  "job.too_large": "larger than the {limit} MB limit",
+  "job.unreadable": "not a readable image (damaged or an unsupported format)",
 
   "flash.google_not_configured": "Google isn’t configured yet. Add the client JSON file as credentials/client_secrets.json.",
   "flash.sign_in_timed_out": "Sign-in timed out. Choose Sign in to try again.",
@@ -129,22 +131,8 @@
     "one": "{count} video",
     "other": "{count} videos"
   },
-  "js.picker.less_than_a_minute_left": "less than a minute left",
-  "js.picker.minutes_left": {
-    "one": "about {count} minute left",
-    "other": "about {count} minutes left"
-  },
   "js.picker.exporting": "Exporting…",
-  "js.picker.progress_count": "{done} of {total}",
-  "js.picker.keep_open": "Keep this page open until it finishes.",
-  "js.picker.keep_open_part": "keep this page open until it finishes",
-  "js.picker.failed_part": {
-    "one": "{count} couldn’t be saved",
-    "other": "{count} couldn’t be saved"
-  },
-  "js.picker.opening_files": "Opening your files…",
   "js.picker.choose_first": "Choose photos or videos first, then wait for the list.",
-  "js.picker.failed_after": "Something went wrong after {done} of {total}: {message}",
   "js.picker.nothing_exported": "Nothing could be exported. Check the terminal logs for details.",
   "js.picker.opening_sign_in": "Opening Google sign-in…",
   "js.picker.create_session_failed": "Failed to create session",
@@ -173,6 +161,21 @@
   "js.picker.signed_in_no_email": "Signed in ·",
   "js.picker.session_expired": "Your Google session expired. Sign in again to choose photos.",
 
+  "js.progress.less_than_a_minute_left": "less than a minute left",
+  "js.progress.minutes_left": {
+    "one": "about {count} minute left",
+    "other": "about {count} minutes left"
+  },
+  "js.progress.count": "{done} of {total}",
+  "js.progress.keep_open": "Keep this page open until it finishes.",
+  "js.progress.keep_open_part": "keep this page open until it finishes",
+  "js.progress.failed_part": {
+    "one": "{count} couldn’t be saved",
+    "other": "{count} couldn’t be saved"
+  },
+  "js.progress.opening_files": "Opening your files…",
+  "js.progress.failed_after": "Something went wrong after {done} of {total}: {message}",
+
   "js.local.output_name": "filenames ending in {suffix}",
   "js.local.with_json": "with JSON files",
   "js.local.images_only": "images only",
@@ -184,9 +187,17 @@
     "one": "({count} image preview)",
     "other": "({count} image previews)"
   },
+  "js.local.skipped": {
+    "one": "{count} file will be skipped because it isn’t an image (a video, for example).",
+    "other": "{count} files will be skipped because they aren’t images (videos, for example)."
+  },
   "js.local.showing_thumbnails": "— showing {count} thumbnails",
   "js.local.choose_files": "Choose files",
   "js.local.choose_folder": "Choose folder",
+  "js.local.restoring": "Restoring dates…",
+  "js.local.nothing_restored": "No photo could be processed. Check the terminal logs for details.",
+  "js.local.no_supported_images": "None of the chosen files is a supported image.",
+  "js.local.all_too_large": "Every chosen photo is larger than the {limit} MB limit.",
 
   "js.preferences.saving": "Saving…",
   "js.preferences.saved": "Saved on this device",

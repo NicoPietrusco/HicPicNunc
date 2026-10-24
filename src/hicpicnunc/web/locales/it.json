@@ -30,7 +30,7 @@
   "google.picker": "Scegli foto e video",
   "google.sign_out": "Esci",
   "google.progress_saving": "Salvataggio dei metadati…",
-  "google.keep_open": "Non chiudere questa pagina finché l'esportazione non è terminata.",
+  "google.keep_open": "Tieni aperta questa pagina fino al termine.",
   "google.selection_title": "La tua selezione",
   "google.nothing_selected": "Nessun elemento selezionato",
   "google.export": "Esporta",
@@ -102,6 +102,8 @@
   "job.json_details": "File JSON con i dettagli ({count}) — clicca per mostrarli",
   "job.other_details": "Altri file ({count})",
   "job.empty": "Nessun file trovato in questa cartella.",
+  "job.too_large": "supera il limite di {limit} MB",
+  "job.unreadable": "non è un'immagine leggibile (danneggiata o in un formato non supportato)",
 
   "flash.google_not_configured": "L'accesso con Google non è ancora configurato. Salva il file JSON del client come credentials/client_secrets.json.",
   "flash.sign_in_timed_out": "L'accesso è scaduto. Premi «Accedi con Google» per riprovare.",
@@ -129,22 +131,8 @@
     "one": "{count} video",
     "other": "{count} video"
   },
-  "js.picker.less_than_a_minute_left": "manca meno di un minuto",
-  "js.picker.minutes_left": {
-    "one": "manca circa {count} minuto",
-    "other": "mancano circa {count} minuti"
-  },
   "js.picker.exporting": "Esportazione in corso…",
-  "js.picker.progress_count": "{done} su {total}",
-  "js.picker.keep_open": "Non chiudere questa pagina finché l'esportazione non è terminata.",
-  "js.picker.keep_open_part": "non chiudere questa pagina finché l'esportazione non è terminata",
-  "js.picker.failed_part": {
-    "one": "{count} elemento non salvato",
-    "other": "{count} elementi non salvati"
-  },
-  "js.picker.opening_files": "Apertura dei file…",
   "js.picker.choose_first": "Prima scegli foto o video, poi attendi che compaia l'elenco.",
-  "js.picker.failed_after": "Si è verificato un problema dopo {done} elementi su {total}: {message}",
   "js.picker.nothing_exported": "Non è stato possibile esportare nulla. Controlla i log nel terminale per i dettagli.",
   "js.picker.opening_sign_in": "Apertura della pagina di accesso a Google…",
   "js.picker.create_session_failed": "Impossibile creare la sessione",
@@ -173,6 +161,21 @@
   "js.picker.signed_in_no_email": "Accesso effettuato ·",
   "js.picker.session_expired": "La sessione Google è scaduta. Accedi di nuovo per scegliere le foto.",
 
+  "js.progress.less_than_a_minute_left": "manca meno di un minuto",
+  "js.progress.minutes_left": {
+    "one": "manca circa {count} minuto",
+    "other": "mancano circa {count} minuti"
+  },
+  "js.progress.count": "{done} su {total}",
+  "js.progress.keep_open": "Tieni aperta questa pagina fino al termine.",
+  "js.progress.keep_open_part": "tieni aperta questa pagina fino al termine",
+  "js.progress.failed_part": {
+    "one": "{count} elemento non salvato",
+    "other": "{count} elementi non salvati"
+  },
+  "js.progress.opening_files": "Apertura dei file…",
+  "js.progress.failed_after": "Si è verificato un problema dopo {done} elementi su {total}: {message}",
+
   "js.local.output_name": "nomi con suffisso {suffix}",
   "js.local.with_json": "con file JSON",
   "js.local.images_only": "solo immagini",
@@ -184,9 +187,17 @@
     "one": "(anteprima di {count} immagine)",
     "other": "(anteprima di {count} immagini)"
   },
+  "js.local.skipped": {
+    "one": "Verrà ignorato {count} file perché non è un'immagine (ad esempio un video).",
+    "other": "Verranno ignorati {count} file perché non sono immagini (ad esempio video)."
+  },
   "js.local.showing_thumbnails": "— vengono mostrate {count} miniature",
   "js.local.choose_files": "Scegli i file",
   "js.local.choose_folder": "Scegli una cartella",
+  "js.local.restoring": "Ripristino delle date…",
+  "js.local.nothing_restored": "Non è stato possibile elaborare nessuna foto. Controlla i log nel terminale per i dettagli.",
+  "js.local.no_supported_images": "Nessuno dei file scelti è un'immagine supportata.",
+  "js.local.all_too_large": "Tutte le foto scelte superano il limite di {limit} MB.",
 
   "js.preferences.saving": "Salvataggio…",
   "js.preferences.saved": "Salvate su questo dispositivo",
