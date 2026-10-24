@@ -160,6 +160,7 @@
   "js.picker.signed_in_as": "Signed in as {email} ·",
   "js.picker.signed_in_no_email": "Signed in ·",
   "js.picker.session_expired": "Your Google session expired. Sign in again to choose photos.",
+  "js.picker.selection_expired": "Your selection expired. Choose the photos again to export them.",
 
   "js.progress.less_than_a_minute_left": "less than a minute left",
   "js.progress.minutes_left": {

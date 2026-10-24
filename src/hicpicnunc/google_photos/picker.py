@@ -13,9 +13,20 @@ import requests
 from google.auth.transport.requests import Request as GoogleRequest
 from google.oauth2.credentials import Credentials
 
+from ..log import get_logger
 from .oauth import SCOPES
 
+logger = get_logger(__name__)
+
 PICKER_BASE = "https://photospicker.googleapis.com/v1"
+
+
+class MediaUrlExpiredError(Exception):
+    """Google refused a baseUrl: they stop working 60 minutes after the items are listed."""
+
+
+class PickerSessionExpiredError(Exception):
+    """The picker session is gone, so its items can't be listed again for fresh URLs."""
 
 
 def _session_url(session_id: str) -> str:
@@ -65,6 +76,34 @@ def list_media_items(creds: Credentials, session_id: str) -> dict[str, Any]:
         page_token = page.get("nextPageToken")
         if not page_token:
             return {"mediaItems": items}
+
+
+def fresh_base_urls(creds: Credentials, session_id: str) -> dict[str, str]:
+    """
+    List the selection again for new baseUrls, by media item id.
+
+    Raises PickerSessionExpiredError when Google no longer knows the session.
+    """
+    try:
+        raw = list_media_items(creds, session_id)
+    except requests.HTTPError as e:
+        status = e.response.status_code if e.response is not None else None
+        # Logged in full: which status Google uses for an expired session is a guess (#23).
+        logger.warning(
+            "Listing picker session {} again failed: HTTP {} {}",
+            session_id[:8],
+            status,
+            getattr(e.response, "text", "")[:500],
+        )
+        if status in (400, 404):
+            raise PickerSessionExpiredError(session_id) from e
+        raise
+    urls: dict[str, str] = {}
+    for item in raw["mediaItems"]:
+        base_url = (item.get("mediaFile") or {}).get("baseUrl")
+        if item.get("id") and base_url:
+            urls[item["id"]] = base_url
+    return urls
 
 
 def transform_picker_items(raw: dict[str, Any]) -> list[dict[str, Any]]:
@@ -127,26 +166,32 @@ def _download_url(base_url: str, video: bool = False) -> str:
     return u + param
 
 
+def _raise_for_media_status(r: requests.Response) -> None:
+    if r.status_code in (401, 403):
+        raise MediaUrlExpiredError(f"HTTP {r.status_code}")
+    r.raise_for_status()
+
+
 def download_media_bytes(base_url: str, access_token: str) -> bytes:
-    """Download a picked photo with its metadata."""
+    """Download a picked photo with its metadata. Raises MediaUrlExpiredError on 401/403."""
     r = requests.get(
         _download_url(base_url),
         headers={"Authorization": f"Bearer {access_token}"},
         timeout=120,
     )
-    r.raise_for_status()
+    _raise_for_media_status(r)
     return r.content
 
 
 def download_video_to(base_url: str, access_token: str, dest: Path) -> None:
-    """Stream a picked video to dest without holding it in memory."""
+    """Stream a picked video to dest without holding it in memory. See download_media_bytes."""
     with requests.get(
         _download_url(base_url, video=True),
         headers={"Authorization": f"Bearer {access_token}"},
         timeout=120,
         stream=True,
     ) as r:
-        r.raise_for_status()
+        _raise_for_media_status(r)
         with dest.open("wb") as f:
             for chunk in r.iter_content(chunk_size=1 << 20):
                 f.write(chunk)

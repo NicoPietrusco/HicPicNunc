@@ -5,7 +5,7 @@ Signed-in Google sessions, kept in memory and keyed by the session_id cookie.
 from __future__ import annotations
 
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from flask import request
 from google.oauth2.credentials import Credentials
@@ -25,6 +25,9 @@ class PickerSessionData:
     credentials_json: str
     picker_session_id: str | None = None
     email: str | None = None
+    # baseUrls listed again after the first ones expired (see routes.picker), by item id.
+    fresh_urls: dict[str, str] = field(default_factory=dict)
+    fresh_urls_at: float = 0.0
 
 
 picker_sessions: dict[str, PickerSessionData] = {}

@@ -65,6 +65,8 @@ def test_download_video_streams_to_disk(monkeypatch, tmp_path) -> None:
     seen: dict[str, Any] = {}
 
     class StreamingResponse:
+        status_code = 200
+
         def __enter__(self):
             return self
 
@@ -151,6 +153,41 @@ def test_list_media_items_stops_on_http_errors(monkeypatch, fake_response, crede
 
     with pytest.raises(picker.requests.HTTPError):
         picker.list_media_items(credentials, "sess")
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_refused_downloads_are_reported_as_expired(monkeypatch, fake_response, status) -> None:
+    monkeypatch.setattr(picker.requests, "get", lambda url, **kw: fake_response(status_code=status))
+
+    with pytest.raises(picker.MediaUrlExpiredError):
+        picker.download_media_bytes("https://lh3.googleusercontent.com/a", "tok")
+
+
+def test_fresh_base_urls_are_keyed_by_item_id(monkeypatch, credentials) -> None:
+    monkeypatch.setattr(
+        picker,
+        "list_media_items",
+        lambda creds, sid: {
+            "mediaItems": [
+                {"id": "a", "mediaFile": {"baseUrl": "https://lh3.googleusercontent.com/a2"}},
+                {"id": "b", "mediaFile": {}},  # no URL: left out
+            ]
+        },
+    )
+
+    assert picker.fresh_base_urls(credentials, "s1") == {
+        "a": "https://lh3.googleusercontent.com/a2"
+    }
+
+
+@pytest.mark.parametrize("status", [400, 404])
+def test_fresh_base_urls_of_an_expired_session(
+    monkeypatch, fake_response, credentials, status
+) -> None:
+    monkeypatch.setattr(picker.requests, "get", lambda url, **kw: fake_response(status_code=status))
+
+    with pytest.raises(picker.PickerSessionExpiredError):
+        picker.fresh_base_urls(credentials, "s1")
 
 
 def test_session_ids_are_url_escaped() -> None:
