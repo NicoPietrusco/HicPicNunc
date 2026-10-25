@@ -1,5 +1,10 @@
 # Hic Pic Nunc
 
+[![Latest release](https://img.shields.io/github/v/release/NicoPietrusco/HicPicNunc)](https://github.com/NicoPietrusco/HicPicNunc/releases/latest)
+[![Quality checks](https://github.com/NicoPietrusco/HicPicNunc/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/NicoPietrusco/HicPicNunc/actions/workflows/quality.yml?query=branch%3Amain)
+[![Platforms: macOS | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)](#download-a-release)
+[![License: MIT](https://img.shields.io/github/license/NicoPietrusco/HicPicNunc)](LICENSE)
+
 **Where and when, kept in every pic.** Keep the dates and camera details of your photos and videos.
 
 *The name plays on the Latin* hic et nunc, *"here and now": the where and when of every shot, with the pic in between.*
