@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.1...v0.4.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* add an Applications link to the macOS disk image ([#103](https://github.com/NicoPietrusco/HicPicNunc/issues/103)) ([2415f0a](https://github.com/NicoPietrusco/HicPicNunc/commit/2415f0a97cbbce7dc7aefb9ea5d4a1d65ed81dc5))
+
 ## [0.4.1](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.0...v0.4.1) (2026-10-24)
 
 
