@@ -38,7 +38,12 @@ package:
 # Create a distributable macOS disk image after `just package`
 [group('Packaging')]
 package-macos: package
-    hdiutil create -volname "Hic Pic Nunc" -srcfolder "dist/Hic Pic Nunc.app" -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
+    rm -rf dist/dmg
+    mkdir dist/dmg
+    ditto "dist/Hic Pic Nunc.app" "dist/dmg/Hic Pic Nunc.app"
+    ln -s /Applications dist/dmg/Applications
+    hdiutil create -volname "Hic Pic Nunc" -srcfolder dist/dmg -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
+    rm -rf dist/dmg
 
 [group('Setup')]
 setup:
