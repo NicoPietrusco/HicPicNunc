@@ -44,6 +44,19 @@ Download the right file from the [latest GitHub Release](https://github.com/Nico
 | Mac with Intel processor | `macOS-x64.dmg` |
 | Windows | `Windows-x64.zip` |
 
+### Check Your Download
+
+The apps are unsigned, but you can check that a file is the one built from this repository. Download `SHA256SUMS` from the same release into the same folder, then compare the checksum:
+
+- **macOS:** `shasum -a 256 -c SHA256SUMS --ignore-missing`
+- **Windows (PowerShell):** run `Get-FileHash HicPicNunc-Windows-x64.zip` and compare the result with the matching line of `SHA256SUMS`.
+
+With the [GitHub CLI](https://cli.github.com/), you can also verify where a file was built:
+
+```bash
+gh attestation verify <file> --repo NicoPietrusco/HicPicNunc
+```
+
 ### macOS Notice
 
 The macOS app is currently unsigned, so Gatekeeper may block it after download.
