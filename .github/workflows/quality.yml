@@ -41,7 +41,7 @@ jobs:
       fail-fast: false
       matrix:
         # Same platforms as the desktop releases, so OS-specific failures show up in PRs.
-        os: [ubuntu-latest, windows-2022, macos-14]
+        os: [ubuntu-latest, windows-2022, macos-15]
         # Empty means .python-version and keeps the job names above, which are required checks.
         # As a matrix axis, it makes the entries below new jobs, not merged into ubuntu-latest.
         python: [""]
