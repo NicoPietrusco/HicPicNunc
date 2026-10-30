@@ -111,7 +111,12 @@ jobs:
         if: runner.os == 'macOS'
         env:
           ARCH: ${{ matrix.arch }}
-        run: hdiutil create -volname "Hic Pic Nunc" -srcfolder "dist/Hic Pic Nunc.app" -ov -format UDZO "dist/HicPicNunc-macOS-${ARCH}.dmg"
+        # The Applications link gives users a place to drag the app to.
+        run: |
+          mkdir dist/dmg
+          mv "dist/Hic Pic Nunc.app" dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "Hic Pic Nunc" -srcfolder dist/dmg -ov -format UDZO "dist/HicPicNunc-macOS-${ARCH}.dmg"
       - name: Package Windows archive
         if: runner.os == 'Windows'
         shell: pwsh
