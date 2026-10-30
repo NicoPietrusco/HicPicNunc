@@ -55,7 +55,7 @@ The macOS app is currently unsigned, so Gatekeeper may block it after download.
 
 On macOS 14 and earlier, you can instead Control-click the app in Finder, choose **Open**, and confirm **Open** in the next dialog.
 
-If macOS still blocks an app you intentionally downloaded from this repository, run:
+If **Open Anyway** keeps bringing you back to the same warning (this happened on a standard, non-administrator account), or macOS still blocks an app you intentionally downloaded from this repository, run this in Terminal:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Hic Pic Nunc.app"
