@@ -947,6 +947,35 @@ body {
   stroke-width: 1.8;
 }
 .app-settings-menu[open] > summary { border-color: var(--primary); background: #edf5ee; }
+.app-quit {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #cbd8cc;
+  border-radius: 6px;
+  background: var(--surface);
+  color: #345444;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.app-quit:hover { border-color: var(--primary); background: #edf5ee; }
+
+/* Shown once the desktop app has stopped; the page underneath no longer works */
+.app-stopped {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgba(247, 251, 246, 0.96);
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 650;
+  text-align: center;
+}
+.app-stopped[hidden] { display: none; }
 
 .settings-popover {
   position: absolute;

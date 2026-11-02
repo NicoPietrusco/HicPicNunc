@@ -1,6 +1,8 @@
 {
   "header.home_aria": "Hic Pic Nunc home",
   "settings.open_aria": "Open settings",
+  "header.quit": "Quit",
+  "header.quit_tooltip": "Stop Hic Pic Nunc. It also stops on its own when you close its last tab.",
   "settings.title": "Settings",
   "settings.saved_on_device": "Saved on this device",
   "settings.metadata_title": "Metadata to keep",
@@ -202,5 +204,7 @@
 
   "js.preferences.saving": "Saving…",
   "js.preferences.saved": "Saved on this device",
-  "js.preferences.save_failed": "Could not save preferences."
+  "js.preferences.save_failed": "Could not save preferences.",
+  "js.desktop.quit": "Hic Pic Nunc has stopped. You can close this tab.",
+  "js.desktop.closed": "Hic Pic Nunc has stopped. Open it again to keep going, then close this tab."
 }

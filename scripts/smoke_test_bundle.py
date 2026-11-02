@@ -96,7 +96,13 @@ def check_zip(job_id: str) -> None:
 def main() -> None:
     executable = find_executable(Path(sys.argv[1] if len(sys.argv) > 1 else "dist"))
     data_dir = Path(tempfile.mkdtemp(prefix="pms-smoke-"))
-    env = {**os.environ, "PORT": str(PORT), "HICPICNUNC_DATA_DIR": str(data_dir)}
+    env = {
+        **os.environ,
+        "PORT": str(PORT),
+        "HICPICNUNC_DATA_DIR": str(data_dir),
+        # No page keeps the app alive here, so don't let it stop on its own.
+        "HICPICNUNC_KEEP_RUNNING": "1",
+    }
     if os.name != "nt":
         env["BROWSER"] = "true"  # don't open a browser on CI
     print(f"Starting {executable}")

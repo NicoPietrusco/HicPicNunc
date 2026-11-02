@@ -1,6 +1,8 @@
 {
   "header.home_aria": "Home di Hic Pic Nunc",
   "settings.open_aria": "Apri le impostazioni",
+  "header.quit": "Esci",
+  "header.quit_tooltip": "Chiudi Hic Pic Nunc. Si chiude anche da solo quando chiudi la sua ultima scheda.",
   "settings.title": "Impostazioni",
   "settings.saved_on_device": "Salvate su questo dispositivo",
   "settings.metadata_title": "Metadati da conservare",
@@ -202,5 +204,7 @@
 
   "js.preferences.saving": "Salvataggio…",
   "js.preferences.saved": "Salvate su questo dispositivo",
-  "js.preferences.save_failed": "Impossibile salvare le preferenze."
+  "js.preferences.save_failed": "Impossibile salvare le preferenze.",
+  "js.desktop.quit": "Hic Pic Nunc si è chiuso. Puoi chiudere questa scheda.",
+  "js.desktop.closed": "Hic Pic Nunc si è chiuso. Riaprilo per continuare, poi chiudi questa scheda."
 }

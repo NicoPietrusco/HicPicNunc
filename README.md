@@ -27,6 +27,7 @@ Hic Pic Nunc exports selected photos and videos from Google Photos while keeping
 1. Sign in to Google Photos and choose the photos and videos to export.
 2. Open **Settings** in the top-right to choose whether camera details and GPS are included. Capture date is always kept when available. JSON sidecars are optional and off by default.
 3. Choose **Export**, then **Download ZIP** on the results page and extract it.
+4. When you're done, close the tab or choose **Quit** in the top-right. The desktop app stops on its own a few seconds after its last tab closes, but lets a download or sign-in in progress finish first. Opening the app while it's running brings back its page instead of starting a second copy.
 
 The ZIP is intentional: browsers assign today's date to individual downloads. Extracting the ZIP preserves the photo's capture date as its **file modification date**. Hic Pic Nunc cannot recover a capture date that is missing from the source image.
 
