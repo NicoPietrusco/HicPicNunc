@@ -3,22 +3,28 @@
 from __future__ import annotations
 
 import json
+import socket
+import struct
+import sys
 import threading
+import time
+import urllib.error
+import urllib.request
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
-from werkzeug.serving import BaseWSGIServer, make_server
+from werkzeug.serving import BaseWSGIServer, WSGIRequestHandler, make_server
 from werkzeug.wrappers import Response
 
 from hicpicnunc.desktop import (
     APP_ID,
     GRACE_PERIOD_S,
     SAFETY_TIMEOUT_S,
-    ActiveRequestsMiddleware,
     Lifecycle,
     forget_instance,
     record_instance,
+    request_handler,
     running_instance_url,
     watch,
 )
@@ -43,10 +49,6 @@ def clock() -> FakeClock:
 @pytest.fixture
 def lifecycle(clock: FakeClock) -> Lifecycle:
     return Lifecycle(clock=clock)
-
-
-def _start_response(status, headers, exc_info=None):
-    return lambda data: None
 
 
 def _open_page(lifecycle: Lifecycle, tab: str) -> None:
@@ -144,32 +146,6 @@ def test_quit_stops_the_app_once_requests_finish(lifecycle: Lifecycle) -> None:
     assert lifecycle.should_exit()
 
 
-def test_middleware_counts_a_streamed_response_until_it_is_closed(
-    lifecycle: Lifecycle, clock: FakeClock
-) -> None:
-    def streaming_app(environ, start_response):
-        return Response(iter([b"chunk"] * 3))(environ, start_response)
-
-    lifecycle.quit()
-    app = ActiveRequestsMiddleware(streaming_app, lifecycle)
-    body = app({"REQUEST_METHOD": "GET"}, _start_response)
-    assert list(body) == [b"chunk"] * 3
-    assert not lifecycle.should_exit()
-
-    body.close()
-    assert lifecycle.should_exit()
-
-
-def test_middleware_counts_a_failed_request_as_finished(lifecycle: Lifecycle) -> None:
-    def failing_app(environ, start_response):
-        raise RuntimeError("boom")
-
-    lifecycle.quit()
-    with pytest.raises(RuntimeError):
-        ActiveRequestsMiddleware(failing_app, lifecycle)({}, _start_response)
-    assert lifecycle.should_exit()
-
-
 def test_watch_shuts_the_server_down_when_allowed(lifecycle: Lifecycle) -> None:
     stopped = threading.Event()
 
@@ -183,16 +159,12 @@ def test_watch_shuts_the_server_down_when_allowed(lifecycle: Lifecycle) -> None:
 
 
 @pytest.fixture
-def serve() -> Iterator[Callable[[dict], BaseWSGIServer]]:
-    """Start a local server answering every request with a JSON payload."""
+def serve() -> Iterator[Callable[..., BaseWSGIServer]]:
+    """Start a local threaded server for a WSGI app."""
     running: list[tuple[BaseWSGIServer, threading.Thread]] = []
 
-    def start(payload: dict) -> BaseWSGIServer:
-        def app(environ, start_response):
-            body = Response(json.dumps(payload), mimetype="application/json")
-            return body(environ, start_response)
-
-        server = make_server("127.0.0.1", 0, app)
+    def start(app, handler: type[WSGIRequestHandler] | None = None) -> BaseWSGIServer:
+        server = make_server("127.0.0.1", 0, app, threaded=True, request_handler=handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         running.append((server, thread))
@@ -205,8 +177,82 @@ def serve() -> Iterator[Callable[[dict], BaseWSGIServer]]:
         thread.join(5)
 
 
+def _json_app(payload: dict):
+    return Response(json.dumps(payload), mimetype="application/json")
+
+
+def _download_app(release: threading.Event):
+    """A streamed download that pauses after its first chunk until release is set."""
+
+    def chunks() -> Iterator[bytes]:
+        yield b"first"
+        release.wait(5)
+        yield from [b"x" * 65536] * 200  # more than any socket buffer holds
+
+    def app(environ, start_response):
+        return Response(chunks())(environ, start_response)
+
+    return app
+
+
+def _wait_for(condition: Callable[[], bool], timeout: float = 5.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def test_a_streamed_download_counts_until_it_is_sent(lifecycle: Lifecycle, serve) -> None:
+    release = threading.Event()
+    lifecycle.quit()
+    server = serve(_download_app(release), request_handler(lifecycle))
+
+    with urllib.request.urlopen(f"http://127.0.0.1:{server.server_port}/", timeout=5) as resp:
+        assert resp.read(5) == b"first"
+        assert not lifecycle.should_exit()
+        release.set()
+        resp.read()
+
+    assert _wait_for(lifecycle.should_exit)
+
+
+def test_a_reset_connection_counts_as_finished(lifecycle: Lifecycle, serve) -> None:
+    # Werkzeug drains an unread request body after the response, and a reset during that
+    # skips the response's close(): counting there would leave this request active.
+    lifecycle.quit()
+    server = serve(Response("ok"), request_handler(lifecycle))
+    sock = socket.create_connection(("127.0.0.1", server.server_port), timeout=5)
+    sock.sendall(b"POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 5\r\n\r\nhello")
+    response = b""
+    while not response.endswith(b"\r\n\r\nok"):  # the whole response, headers and body
+        chunk = sock.recv(4096)
+        assert chunk, f"connection closed after {response!r}"
+        response += chunk
+    linger = struct.pack("HH" if sys.platform == "win32" else "ii", 1, 0)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, linger)
+    sock.close()
+
+    assert _wait_for(lifecycle.should_exit)
+
+
+def test_a_failed_request_counts_as_finished(lifecycle: Lifecycle, serve) -> None:
+    def failing_app(environ, start_response):
+        raise RuntimeError("boom")
+
+    lifecycle.quit()
+    server = serve(failing_app, request_handler(lifecycle))
+    with pytest.raises(urllib.error.HTTPError) as error:
+        urllib.request.urlopen(f"http://127.0.0.1:{server.server_port}/", timeout=5)
+    error.value.close()
+
+    assert error.value.code == 500
+    assert _wait_for(lifecycle.should_exit)
+
+
 def test_finds_a_running_instance(tmp_path: Path, serve) -> None:
-    port = serve({"app": APP_ID}).server_port
+    port = serve(_json_app({"app": APP_ID})).server_port
     path = tmp_path / "state" / "instance.json"
     record_instance(path, port)
 
@@ -215,7 +261,7 @@ def test_finds_a_running_instance(tmp_path: Path, serve) -> None:
 
 def test_ignores_another_program_on_the_recorded_port(tmp_path: Path, serve) -> None:
     path = tmp_path / "instance.json"
-    record_instance(path, serve({"app": "something-else"}).server_port)
+    record_instance(path, serve(_json_app({"app": "something-else"})).server_port)
 
     assert running_instance_url(path) is None
 
