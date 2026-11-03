@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import urllib.request
+from functools import partial
 
 import pytest
 
 import hicpicnunc.__main__ as entry
+from hicpicnunc.settings import settings
+from hicpicnunc.web import app as app_module
 from hicpicnunc.web.routes import auth
 
 
@@ -60,3 +64,60 @@ def test_a_pending_sign_in_does_not_block_other_requests(
     finally:
         release.set()
         sign_in.join(5)
+
+
+@pytest.fixture
+def desktop(data_dir, monkeypatch):
+    """Run main() as a desktop bundle would, without its log file."""
+    monkeypatch.setattr(entry.sys, "frozen", True, raising=False)
+    monkeypatch.delenv("HICPICNUNC_KEEP_RUNNING", raising=False)
+    monkeypatch.setattr(app_module, "setup_logger", lambda: None)
+    monkeypatch.setenv("PORT", "0")
+    return data_dir
+
+
+def test_a_desktop_build_opens_the_running_instance_instead_of_starting(
+    desktop, monkeypatch
+) -> None:
+    monkeypatch.setattr(entry, "running_instance_url", lambda path: "http://127.0.0.1:5123")
+    monkeypatch.setattr(entry, "make_server", lambda *a, **k: pytest.fail("started a server"))
+    opened = []
+    monkeypatch.setattr(entry.webbrowser, "open", opened.append)
+
+    entry.main()
+
+    assert opened == ["http://127.0.0.1:5123"]
+
+
+def test_a_desktop_build_records_its_port_and_stops_on_quit(desktop, monkeypatch) -> None:
+    monkeypatch.setattr(entry.webbrowser, "open", lambda url: None)
+    monkeypatch.setattr(entry, "watch", partial(entry.watch, interval=0.01))
+    started = threading.Event()
+    servers = []
+    real_make_server = entry.make_server
+
+    def make_server(*args, **kwargs):
+        servers.append(real_make_server(*args, **kwargs))
+        started.set()
+        return servers[0]
+
+    monkeypatch.setattr(entry, "make_server", make_server)
+    thread = threading.Thread(target=entry.main, daemon=True)
+    thread.start()
+    assert started.wait(60)
+    base = f"http://127.0.0.1:{servers[0].server_port}"
+    instance = settings.instance_path
+    # The port is recorded right after the server is created
+    for _ in range(100):
+        if instance.is_file():
+            break
+        thread.join(0.05)
+    assert json.loads(instance.read_text())["port"] == servers[0].server_port
+
+    quit_request = urllib.request.Request(f"{base}/api/quit", method="POST")
+    with urllib.request.urlopen(quit_request, timeout=5) as resp:
+        assert resp.status == 200
+    thread.join(10)
+
+    assert not thread.is_alive()
+    assert not instance.exists()

@@ -100,6 +100,8 @@ To build the desktop package locally:
 just package
 ```
 
+A desktop build stops a few seconds after its last browser tab closes and runs one instance at a time (see `src/hicpicnunc/desktop.py`). Set `HICPICNUNC_KEEP_RUNNING=1` to keep a build running without a page open, as the bundle smoke test does. When running from source, the app keeps running until Ctrl+C.
+
 CI runs on Ubuntu, Windows, and macOS, so changes should work across all supported platforms.
 
 ## Development workflow
