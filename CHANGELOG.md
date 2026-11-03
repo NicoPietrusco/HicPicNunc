@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.2](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.1...v0.4.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* add an Applications link to the macOS disk image ([#103](https://github.com/NicoPietrusco/HicPicNunc/issues/103)) ([2415f0a](https://github.com/NicoPietrusco/HicPicNunc/commit/2415f0a97cbbce7dc7aefb9ea5d4a1d65ed81dc5))
+* keep counting requests when a connection is reset ([#106](https://github.com/NicoPietrusco/HicPicNunc/issues/106)) ([704f0e6](https://github.com/NicoPietrusco/HicPicNunc/commit/704f0e6660873deccc34ad8015ca737fc9879ce5))
+* quit the desktop app when its last tab closes ([#105](https://github.com/NicoPietrusco/HicPicNunc/issues/105)) ([340e777](https://github.com/NicoPietrusco/HicPicNunc/commit/340e7773467cefd4f005913b00bdd2f0d03debec))
+
 ## [0.4.1](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.0...v0.4.1) (2026-10-24)
 
 
