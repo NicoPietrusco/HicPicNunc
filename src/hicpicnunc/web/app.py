@@ -11,7 +11,7 @@ from flask import Flask, request
 
 from ..core.jobs import prune_expired_jobs
 from ..core.metadata_fields import load_metadata_preferences
-from ..desktop import ActiveRequestsMiddleware, Lifecycle
+from ..desktop import Lifecycle
 from ..log import setup_logger
 from ..settings import settings
 from .i18n import current_language, js_catalog, t, tn
@@ -70,7 +70,5 @@ def create_app(lifecycle: Lifecycle | None = None) -> Flask:
 
     if lifecycle:
         app.extensions["lifecycle"] = lifecycle
-        # Flask's documented way to add WSGI middleware
-        app.wsgi_app = ActiveRequestsMiddleware(app.wsgi_app, lifecycle)  # ty: ignore[invalid-assignment]
 
     return app

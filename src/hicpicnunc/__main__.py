@@ -16,6 +16,7 @@ from hicpicnunc.desktop import (
     Lifecycle,
     forget_instance,
     record_instance,
+    request_handler,
     running_instance_url,
     watch,
 )
@@ -41,7 +42,8 @@ def main() -> None:
     default_port = "0" if desktop else "5001"
     port = int(os.environ.get("PORT", default_port))
     # Threaded, so a long export or a pending Google sign-in doesn't freeze the UI.
-    server = make_server("127.0.0.1", port, app, threaded=True)
+    handler = request_handler(lifecycle) if lifecycle else None
+    server = make_server("127.0.0.1", port, app, threaded=True, request_handler=handler)
     url = f"http://127.0.0.1:{server.server_port}"
     logger.info("Hic Pic Nunc is running at {}", url)
     if desktop:

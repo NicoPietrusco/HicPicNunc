@@ -11,17 +11,15 @@ dropped after a safety timeout, longer than the once-a-minute timers of backgrou
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from werkzeug.wsgi import ClosingIterator
-
-if TYPE_CHECKING:
-    from _typeshed.wsgi import StartResponse, WSGIApplication, WSGIEnvironment
+from werkzeug.serving import WSGIRequestHandler
 
 # Sent by /api/instance, so a running copy isn't mistaken for another program on its port
 APP_ID = "hicpicnunc"
@@ -93,26 +91,24 @@ class Lifecycle:
         self._quiet_until = max(self._quiet_until, self._clock() + seconds)
 
 
-class ActiveRequestsMiddleware:
+def request_handler(lifecycle: Lifecycle) -> type[WSGIRequestHandler]:
     """
-    WSGI middleware that counts a request as active until its response is closed.
+    A request handler that counts each request as active until it has been fully served.
 
-    Flask's after_request runs before a streamed response (the ZIP download) is sent,
-    so the count must end in the response iterable's close().
+    The count spans the whole response, so a streamed ZIP download stays active until
+    it's sent. It isn't tied to the response's close(), which Werkzeug skips when the
+    client resets the connection after the response: that would count it forever.
     """
 
-    def __init__(self, app: WSGIApplication, lifecycle: Lifecycle) -> None:
-        self.app = app
-        self.lifecycle = lifecycle
+    class LifecycleRequestHandler(WSGIRequestHandler):
+        def run_wsgi(self) -> None:
+            lifecycle.request_started()
+            try:
+                super().run_wsgi()
+            finally:
+                lifecycle.request_finished()
 
-    def __call__(self, environ: WSGIEnvironment, start_response: StartResponse) -> ClosingIterator:
-        self.lifecycle.request_started()
-        try:
-            body = self.app(environ, start_response)
-        except BaseException:
-            self.lifecycle.request_finished()
-            raise
-        return ClosingIterator(body, self.lifecycle.request_finished)
+    return LifecycleRequestHandler
 
 
 def watch(server: Any, lifecycle: Lifecycle, interval: float = 1.0) -> threading.Thread:
@@ -145,8 +141,11 @@ def running_instance_url(instance_path: Path, timeout: float = 2.0) -> str | Non
 
 
 def record_instance(instance_path: Path, port: int) -> None:
+    """Write the record in one step, so a second launch never reads it half written."""
     instance_path.parent.mkdir(parents=True, exist_ok=True)
-    instance_path.write_text(json.dumps({"port": port}), encoding="utf-8")
+    partial = instance_path.with_suffix(".tmp")
+    partial.write_text(json.dumps({"port": port}), encoding="utf-8")
+    os.replace(partial, instance_path)
 
 
 def forget_instance(instance_path: Path, port: int) -> None:
