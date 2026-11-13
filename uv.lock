@@ -469,14 +469,10 @@ dependencies = [
     { name = "loguru" },
     { name = "piexif" },
     { name = "pillow" },
+    { name = "pillow-heif" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
-]
-
-[package.optional-dependencies]
-heic = [
-    { name = "pillow-heif" },
 ]
 
 [package.dev-dependencies]
@@ -500,12 +496,11 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.0" },
     { name = "piexif", specifier = ">=1.1.3" },
     { name = "pillow", specifier = ">=12.0.0" },
-    { name = "pillow-heif", marker = "extra == 'heic'", specifier = ">=0.15.0" },
+    { name = "pillow-heif", specifier = ">=1.1.1" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "requests", specifier = ">=2.31.0" },
 ]
-provides-extras = ["heic"]
 
 [package.metadata.requires-dev]
 dev = [
