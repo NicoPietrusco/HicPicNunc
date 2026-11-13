@@ -93,3 +93,17 @@ def test_pre_rename_data_dir_variable_still_works(
     monkeypatch.setenv("GPHOTOMETASYNC_DATA_DIR", str(tmp_path))
 
     assert settings.app_data_dir == tmp_path
+
+
+def test_only_desktop_builds_stop_on_their_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HICPICNUNC_KEEP_RUNNING", raising=False)
+
+    assert settings.auto_exit is False
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert settings.auto_exit is True
+
+
+def test_keep_running_turns_off_auto_exit(frozen: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HICPICNUNC_KEEP_RUNNING", "1")
+
+    assert settings.auto_exit is False

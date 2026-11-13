@@ -38,30 +38,54 @@ package:
 # Create a distributable macOS disk image after `just package`
 [group('Packaging')]
 package-macos: package
-    hdiutil create -volname "Hic Pic Nunc" -srcfolder "dist/Hic Pic Nunc.app" -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
+    rm -rf dist/dmg
+    mkdir dist/dmg
+    ditto "dist/Hic Pic Nunc.app" "dist/dmg/Hic Pic Nunc.app"
+    ln -s /Applications dist/dmg/Applications
+    hdiutil create -volname "Hic Pic Nunc" -srcfolder dist/dmg -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
+    rm -rf dist/dmg
 
 [group('Setup')]
 setup:
-    @echo "Creating venv (Python 3.11)..."
-    uv venv --python python3.11 .venv
+    @echo "Creating venv (Python from .python-version) and installing dependencies..."
     uv sync --group dev
     @echo "Done."
+
+# Install the git hooks, so every commit runs the `just check` hooks on its staged files
+[group('Setup')]
+hooks:
+    uv run --frozen prek install
+
+# Run every hook on all files, as CI does: lint, format, types, lock file, workflow audit
+[group('Quality')]
+check:
+    uv run --frozen prek run --all-files
 
 [group('Quality')]
 lint:
     uv run ruff check src/ tests/
 
+# Audit GitHub Actions workflows and Dependabot config for security issues
+[group('Quality')]
+lint-workflows:
+    uv run zizmor .github
+
 [group('Quality')]
 typecheck:
-    uv run ty check src/
+    uv run ty check src/ tests/
 
 [group('Quality')]
 test:
     uv run pytest
 
+# Run the tests with coverage, as CI does, and write an HTML report to htmlcov/
+[group('Quality')]
+coverage:
+    uv run pytest --cov --cov-report=term-missing --cov-report=html
+
 [group('Quality')]
 format:
-    uv run ruff format src/
+    uv run ruff format src/ tests/
 
 [group('Maintenance')]
 clean:

@@ -8,12 +8,12 @@ import zipfile
 import piexif
 import pytest
 
-from hicpicnunc.web.routes.jobs import categorize_job_files, friendly_job_filename
+from hicpicnunc.web.routes.jobs import categorize_job_files
 
 AJAX = {"Accept": "application/json", "X-Requested-With": "XMLHttpRequest"}
 
 
-def _upload(client, files: list[tuple[bytes, str]], **form: str):
+def _upload(client, files: list[tuple[bytes, str]], **form: str | list[str]):
     data: dict = {"file": [(io.BytesIO(b), name) for b, name in files], **form}
     return client.post("/upload", data=data, headers=AJAX)
 
@@ -27,7 +27,7 @@ def test_upload_returns_download_links(client, make_jpeg) -> None:
 
     assert body["ok"] and body["processed"] == 1
     assert body["files"][0]["relative_path"] == "IMG_1_exif.jpg"
-    assert body["files"][0]["json_relative_path"] == "IMG_1_exif.json"  # sidecar on by default here
+    assert body["files"][0]["json_relative_path"] == "IMG_1_exif.jpg.json"  # sidecar on by default
     assert client.get(body["files"][0]["image_url"]).status_code == 200
 
 
@@ -44,10 +44,77 @@ def test_folder_upload_keeps_the_folder_structure(client, make_jpeg) -> None:
     assert sorted(f["relative_path"] for f in body["files"]) == ["trip/b.jpg", "trip/day1/a.jpg"]
 
 
+def test_folder_upload_keeps_original_folder_and_file_names(client, make_jpeg) -> None:
+    src = make_jpeg().read_bytes()
+
+    body = _upload(
+        client,
+        [(src, "a.jpg"), (src, "b.jpg"), (src, "c.jpg")],
+        relative_paths=[
+            "Vacanze 2019/Perù – giorno 1.jpg",
+            "Vacanze 2019/東京タワー.jpg",
+            "Vacanze 2019/perù – GIORNO 1.JPG",
+        ],
+        include_json="false",
+    ).get_json()
+
+    files = {f["relative_path"]: f for f in body["files"]}
+    assert set(files) == {
+        "Vacanze 2019/Perù – giorno 1.jpg",
+        "Vacanze 2019/東京タワー.jpg",
+        "Vacanze 2019/perù – GIORNO 1 (2).JPG",  # same name ignoring case: numbered
+    }
+    download = client.get(files["Vacanze 2019/東京タワー.jpg"]["image_url"])
+    assert download.status_code == 200
+    assert "filename*=UTF-8''" in download.headers["Content-Disposition"]
+
+
 def test_upload_leaves_no_staged_copies(client, make_jpeg, data_dir) -> None:
     _upload(client, [(make_jpeg().read_bytes(), "IMG.jpg"), (b"broken", "bad.jpg")])
 
     assert list((data_dir / "data" / "uploads").iterdir()) == []
+
+
+def test_chunked_upload_lands_in_one_job(client, make_jpeg) -> None:
+    src = make_jpeg().read_bytes()
+
+    first = _upload(client, [(src, "a.jpg")], relative_paths=["trip/a.jpg"]).get_json()
+    second = _upload(
+        client,
+        [(src, "a.jpg")],
+        relative_paths=["trip/a.jpg"],
+        job_id=first["job_id"],
+        offset="1",
+    ).get_json()
+
+    assert second["job_id"] == first["job_id"]
+    page = client.get(first["job_url"]).get_data(as_text=True)
+    assert "trip/a.jpg" in page
+    assert "trip/a (2).jpg" in page  # same name as in the first chunk: numbered
+
+
+def test_failed_chunk_still_returns_its_job(client) -> None:
+    body = _upload(client, [(b"not really a jpeg", "broken.jpg")]).get_json()
+
+    assert body["ok"] is False
+    assert client.get(f"/job/{body['job_id']}").status_code == 200
+
+
+def test_upload_rejects_unknown_jobs(client, make_jpeg) -> None:
+    resp = _upload(
+        client,
+        [(make_jpeg().read_bytes(), "IMG.jpg")],
+        job_id="0f8fad5b-d9cb-469f-a165-70867728950e",
+    )
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.parametrize("offset", ["-1", "two", ""])
+def test_upload_rejects_invalid_offsets(client, make_jpeg, offset: str) -> None:
+    resp = _upload(client, [(make_jpeg().read_bytes(), "IMG.jpg")], offset=offset)
+
+    assert resp.status_code == 400
 
 
 def test_upload_rejects_unsupported_files(client) -> None:
@@ -78,6 +145,31 @@ def test_result_page_lists_the_job_files(client, make_jpeg) -> None:
 
     assert "IMG.jpg" in page
     assert f"/job/{body['job_id']}/download-all" in page
+
+
+def test_result_page_lists_the_files_that_failed(client, make_jpeg, monkeypatch) -> None:
+    monkeypatch.setenv("MAX_UPLOAD_MB", "20")
+    src = make_jpeg().read_bytes()
+    first = _upload(
+        client,
+        [(src, "a.jpg"), (b"not really a jpeg", "broken.jpg")],
+        relative_paths=["trip/a.jpg", "trip/broken.jpg"],
+        too_large=["trip/panorama.tif"],
+    ).get_json()
+    _upload(
+        client,
+        [(b"not a jpeg either", "c.jpg")],
+        relative_paths=["trip/c.jpg"],
+        job_id=first["job_id"],
+        offset="2",
+    )
+
+    page = client.get(first["job_url"]).get_data(as_text=True)  # no ?failed=: counted here
+
+    assert "3 items couldn" in page
+    assert "trip/panorama.tif</span> — larger than the 20 MB limit" in page
+    assert "trip/broken.jpg</span> — not a readable image" in page
+    assert "trip/c.jpg</span>" in page
 
 
 @pytest.mark.parametrize(
@@ -129,33 +221,24 @@ def test_zip_download_accepts_capture_dates_before_1980(client, make_jpeg) -> No
     assert zipfile.ZipFile(io.BytesIO(download.data)).namelist() == ["old_scan.jpg"]
 
 
-def test_result_page_lists_files_by_displayed_name(client, data_dir) -> None:
+def test_result_page_lists_files_by_name(client, data_dir) -> None:
     job_id = "0f8fad5b-d9cb-469f-a165-70867728950e"
     job_dir = data_dir / "data" / "outputs" / job_id
     job_dir.mkdir(parents=True)
-    for i, name in [(0, "IMG_0000"), (1, "IMG_0001"), (10, "IMG_0010"), (100, "IMG_0100")]:
-        (job_dir / f"{job_id}_{i}_{name}_exif.jpg").write_bytes(b"x")
+    for name in ("IMG_0100", "IMG_0000", "IMG_0010", "IMG_0001"):
+        (job_dir / f"{name}.jpg").write_bytes(b"x")
 
     page = client.get(f"/job/{job_id}").get_data(as_text=True)
-    positions = [page.index(f">IMG_{n}_exif.jpg<") for n in ("0000", "0001", "0010", "0100")]
+    positions = [page.index(f">IMG_{n}.jpg<") for n in ("0000", "0001", "0010", "0100")]
 
     assert positions == sorted(positions)
 
 
-def test_friendly_job_filename_strips_the_storage_prefix() -> None:
-    assert (
-        friendly_job_filename("0f8fad5b-d9cb-469f-a165-70867728950e_3_IMG_exif.jpg")
-        == "IMG_exif.jpg"
-    )
-    assert friendly_job_filename("trip/IMG.jpg") == "trip/IMG.jpg"
-    assert friendly_job_filename("IMG.jpg") == "IMG.jpg"
-
-
 def test_categorize_job_files() -> None:
-    assert categorize_job_files(["a.jpg", "a.json", "notes.txt", "b.HEIC", "clip.MOV"]) == {
+    assert categorize_job_files(["a.jpg", "a.jpg.json", "notes.txt", "b.HEIC", "clip.MOV"]) == {
         "images": ["a.jpg", "b.HEIC"],
         "videos": ["clip.MOV"],
-        "jsons": ["a.json"],
+        "jsons": ["a.jpg.json"],
         "others": ["notes.txt"],
     }
 
@@ -164,8 +247,8 @@ def test_result_page_lists_videos_separately(client, data_dir) -> None:
     job_id = "0f8fad5b-d9cb-469f-a165-70867728950e"
     job_dir = data_dir / "data" / "outputs" / job_id
     job_dir.mkdir(parents=True)
-    (job_dir / f"{job_id}_0_IMG_1_exif.jpg").write_bytes(b"x")
-    (job_dir / f"{job_id}_1_VID_1.mp4").write_bytes(b"x")
+    (job_dir / "IMG_1.jpg").write_bytes(b"x")
+    (job_dir / "VID_1.mp4").write_bytes(b"x")
 
     page = " ".join(client.get(f"/job/{job_id}").get_data(as_text=True).split())
 

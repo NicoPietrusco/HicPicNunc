@@ -5,7 +5,7 @@ Signed-in Google sessions, kept in memory and keyed by the session_id cookie.
 from __future__ import annotations
 
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from flask import request
 from google.oauth2.credentials import Credentials
@@ -24,6 +24,11 @@ COOKIE_NAME = "session_id"
 class PickerSessionData:
     credentials_json: str
     picker_session_id: str | None = None
+    email: str | None = None
+    # baseUrls listed again after the first ones expired (see routes.picker), by item id.
+    fresh_urls: dict[str, str] = field(default_factory=dict)
+    fresh_urls_at: float = 0.0
+    fresh_urls_failed_at: float = 0.0
 
 
 picker_sessions: dict[str, PickerSessionData] = {}
@@ -34,11 +39,23 @@ def current_session() -> PickerSessionData | None:
     return picker_sessions.get(sid) if sid else None
 
 
-def start_session(creds: Credentials, response: Response) -> None:
+def start_session(creds: Credentials, response: Response, email: str | None = None) -> None:
     """Remember creds for this browser and set its session cookie on response."""
     sid = secrets.token_urlsafe(16)
-    picker_sessions[sid] = PickerSessionData(credentials_json=creds.to_json())
+    user_email = email or getattr(creds, "account", None) or None
+    picker_sessions[sid] = PickerSessionData(
+        credentials_json=creds.to_json(),
+        email=user_email,
+    )
     response.set_cookie(COOKIE_NAME, sid, httponly=True, samesite="Lax")
+
+
+def clear_session(response: Response) -> None:
+    """Drop in-memory session and clear the session cookie on response."""
+    sid = request.cookies.get(COOKIE_NAME)
+    if sid:
+        picker_sessions.pop(sid, None)
+    response.delete_cookie(COOKIE_NAME, httponly=True, samesite="Lax")
 
 
 def save_token(creds: Credentials) -> None:

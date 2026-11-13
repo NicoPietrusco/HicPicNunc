@@ -2,6 +2,7 @@
 Application settings: paths, limits and environment overrides.
 """
 
+import contextlib
 import os
 import secrets
 import sys
@@ -38,10 +39,8 @@ class Settings:
             key_path.parent.mkdir(parents=True, exist_ok=True)
             key = secrets.token_urlsafe(32)
             key_path.write_text(key, encoding="utf-8")
-            try:
+            with contextlib.suppress(OSError):
                 key_path.chmod(0o600)
-            except OSError:
-                pass
             return key
         except OSError:
             return secrets.token_urlsafe(32)
@@ -80,6 +79,18 @@ class Settings:
     def metadata_preferences_path(self) -> Path:
         """Per-user metadata choices shared by local and Google Photos workflows."""
         return self.app_data_dir / "settings" / "metadata_preferences.json"
+
+    @property
+    def auto_exit(self) -> bool:
+        """Stop the desktop app when its last browser tab closes (HICPICNUNC_KEEP_RUNNING=1 turns it off)."""
+        if os.environ.get("HICPICNUNC_KEEP_RUNNING"):
+            return False
+        return bool(getattr(sys, "frozen", False))
+
+    @property
+    def instance_path(self) -> Path:
+        """Port of the running desktop app, so a second launch opens it instead."""
+        return self.app_data_dir / "state" / "instance.json"
 
     @property
     def log_path(self) -> Path:

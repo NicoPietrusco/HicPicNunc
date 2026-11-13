@@ -53,7 +53,9 @@ def test_parse_stem_suffix(raw: str | None, expected: str) -> None:
         ("../IMG.jpg", None),
         ("trip/../IMG.jpg", None),
         ("trip//IMG.jpg", None),
-        ("my trip/IMG.jpg", None),  # would be renamed by secure_filename
+        ("my trip/Perù.jpg", "my trip/Perù.jpg"),
+        ("trip:1/a?.jpg", "trip1/a.jpg"),
+        ("trip/.../IMG.jpg", None),
         ("a\0b.jpg", None),
         ("", None),
     ],

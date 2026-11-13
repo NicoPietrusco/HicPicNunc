@@ -4,6 +4,7 @@ EXIF field selection for extract and embed, defined in metadata_fields.yaml.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from dataclasses import dataclass, field
@@ -68,7 +69,7 @@ def load_field_catalog() -> MetadataFieldCatalog:
 
 def default_metadata_preferences() -> dict[str, bool]:
     """Every group from the catalog is on by default; the JSON sidecar is off."""
-    return {**{key: True for key in load_field_catalog().groups}, "include_json": False}
+    return {**dict.fromkeys(load_field_catalog().groups, True), "include_json": False}
 
 
 def load_metadata_preferences(path: Path | None = None) -> dict[str, bool]:
@@ -102,10 +103,8 @@ def save_metadata_preferences(
     preferences_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = preferences_path.with_suffix(".tmp")
     temporary_path.write_text(json.dumps(normalized, indent=2) + "\n", encoding="utf-8")
-    try:
+    with contextlib.suppress(OSError):
         temporary_path.chmod(0o600)
-    except OSError:
-        pass
     temporary_path.replace(preferences_path)
     return normalized
 

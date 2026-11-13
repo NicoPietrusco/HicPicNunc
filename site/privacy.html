@@ -25,9 +25,10 @@
       <p class="lead">Hic Pic Nunc is a free, open-source desktop app. It runs entirely on your computer. The developer does not operate any server, and never receives your photos, your Google account data or anything else about you.</p>
 
       <h2>What the app accesses</h2>
-      <p>When you sign in with Google, the app asks for a single permission: <code>https://www.googleapis.com/auth/photospicker.mediaitems.readonly</code>. It lets the app:</p>
+      <p>When you sign in with Google, the app asks for permissions to:</p>
       <ul>
-        <li>open the Google Photos picker, where <strong>you</strong> choose which photos and videos to share with the app;</li>
+        <li>view your email address (<code>openid</code> and <code>email</code> scopes), so the app can show which account is currently connected;</li>
+        <li>open the Google Photos picker (<code>https://www.googleapis.com/auth/photospicker.mediaitems.readonly</code>), where <strong>you</strong> choose which photos and videos to share with the app;</li>
         <li>read and download <strong>only the items you picked</strong>, together with the information Google provides about them (file name, type, dimensions, creation time, camera make and model).</li>
       </ul>
       <p>The app cannot see the rest of your library, cannot change or delete anything in Google Photos, and cannot upload anything to it.</p>
@@ -38,7 +39,7 @@
       <h2>What is stored, and where</h2>
       <p>Everything stays in the app’s data folder on your computer (<code>~/Library/Application Support/GPhotoMetaSync</code> on macOS, <code>%LOCALAPPDATA%\GPhotoMetaSync</code> on Windows):</p>
       <ul>
-        <li><strong>Google sign-in token</strong> (<code>credentials/google_token.json</code>): so you don’t have to sign in every time. It never leaves your computer except to talk to Google.</li>
+        <li><strong>Google sign-in token and account email</strong> (<code>credentials/google_token.json</code>): so you don’t have to sign in every time, and can see which account is currently connected. It never leaves your computer except to talk to Google.</li>
         <li><strong>Working copies</strong> of downloaded items: deleted as soon as each item is processed.</li>
         <li><strong>Exported copies</strong>, kept so you can download the ZIP: deleted automatically after 24 hours.</li>
         <li><strong>Your settings</strong> (which metadata to keep) and a random key that protects the app’s local session.</li>
@@ -53,6 +54,7 @@
 
       <h2>Removing access and data</h2>
       <ul>
+        <li>Click <strong>Sign out</strong> in the app to revoke the token with Google, drop your local session, and delete the saved credentials file.</li>
         <li>Revoke the app’s access to your Google account at any time from <a href="https://myaccount.google.com/connections">your Google Account’s third-party connections</a>.</li>
         <li>Delete the app’s data folder listed above to remove everything it stored, including the sign-in token.</li>
       </ul>

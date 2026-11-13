@@ -5,21 +5,21 @@ Export jobs: each job is a folder of processed photos under data/outputs/<uuid>.
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import shutil
 import time
 import uuid
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
-from werkzeug.utils import secure_filename
-
 from ..log import get_logger
 from ..settings import settings
+from .filenames import is_safe_filename
 
 logger = get_logger(__name__)
 
@@ -74,11 +74,36 @@ def get_job_dir(job_id: str) -> Path | None:
     return job_dir if job_dir.is_dir() else None
 
 
+def _failures_path(job_id: str) -> Path:
+    # Next to the job folder, not inside it, so it is never listed or zipped; it starts with
+    # the job id, so prune_expired_jobs removes it along with the job.
+    return settings.web_output_dir / f"{job_id}.failed.json"
+
+
+def record_failures(job_id: str, failures: list[dict[str, str]]) -> None:
+    """Add {"name", "error"} entries to the job's list of files that couldn't be saved."""
+    if failures:
+        path = _failures_path(job_id)
+        path.write_text(json.dumps(load_failures(job_id) + failures), encoding="utf-8")
+
+
+def load_failures(job_id: str) -> list[dict[str, str]]:
+    """Files of the job that couldn't be saved, in the order they were recorded."""
+    try:
+        return json.loads(_failures_path(job_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+
+
 @contextmanager
-def staged_file(job_id: str, index: int, filename: str) -> Iterator[Path]:
-    """Path for an incoming file while it is processed; the file is deleted afterwards."""
+def staged_file(job_id: str, index: int, filename: str) -> Generator[Path, None, None]:
+    """
+    Path for an incoming file while it is processed; the file is deleted afterwards.
+
+    Only filename's extension is kept: the output name is chosen separately.
+    """
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
-    path = settings.upload_dir / f"{job_id}_{index}_{filename}"
+    path = settings.upload_dir / f"{job_id}_{index}{Path(filename).suffix}"
     try:
         yield path
     finally:
@@ -132,7 +157,7 @@ def resolve_job_file(job_dir: Path, rel: str) -> Path | None:
     if not rel or "\0" in rel:
         return None
     parts = rel.split("/")
-    if any(not p or p in (".", "..") or secure_filename(p) != p for p in parts):
+    if any(p in (".", "..") or not is_safe_filename(p) for p in parts):
         return None
     try:
         root = job_dir.resolve()

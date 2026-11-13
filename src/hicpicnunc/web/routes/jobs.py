@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from flask import (
@@ -17,36 +16,26 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.utils import secure_filename
 
 from ...core.exif import process_image_extract_and_embed
+from ...core.filenames import safe_filename, unique_name
 from ...core.jobs import (
     get_job_dir,
     is_image_file,
     iter_job_zip,
     list_job_files,
+    load_failures,
     new_job,
+    record_failures,
     resolve_job_file,
     staged_file,
 )
 from ...core.metadata_fields import load_user_exif_field_config
 from ...settings import settings
 from ..forms import parse_bool, parse_stem_suffix, sanitize_relative_path
+from ..i18n import t, tn
 
 bp = Blueprint("jobs", __name__)
-
-_JOB_FILE_PREFIX_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_\d+_(.+)$",
-    re.I,
-)
-
-
-def friendly_job_filename(filename: str) -> str:
-    """Strip leading job id + index from stored filenames for display."""
-    if "/" in filename:
-        return filename
-    m = _JOB_FILE_PREFIX_RE.match(filename)
-    return m.group(1) if m else filename
 
 
 def categorize_job_files(names: list[str]) -> dict[str, list[str]]:
@@ -67,6 +56,15 @@ def categorize_job_files(names: list[str]) -> dict[str, list[str]]:
 
 @bp.post("/upload")
 def upload():
+    """
+    Restore dates on local photos and write them into an output job folder.
+
+    The browser sends a large selection in chunks, so no request exceeds MAX_UPLOAD_MB: the
+    first creates the job, later ones pass its job_id plus the offset of their first file in
+    the whole selection. A plain form POST (no job_id) processes everything in one job.
+    Files over the size limit stay in the browser; their names come as too_large, so the
+    result page lists them with the files that failed here.
+    """
     wants_json = (
         "application/json" in (request.headers.get("Accept") or "").lower()
         and request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -76,8 +74,16 @@ def upload():
     if not file_list:
         if wants_json:
             return jsonify({"ok": False, "detail": "No file was uploaded."}), 400
-        flash("No file was uploaded. Try again.", "error")
+        flash(t("flash.no_file"), "error")
         return redirect(url_for("home.index"))
+
+    offset = request.form.get("offset", "0")
+    if not offset.isdecimal():  # isdigit() also accepts "²", which int() rejects
+        return jsonify({"ok": False, "detail": "offset must be a non-negative integer"}), 400
+    requested_job = request.form.get("job_id")
+    existing_job = get_job_dir(requested_job) if requested_job else None
+    if requested_job and existing_job is None:
+        return jsonify({"ok": False, "detail": "Unknown job"}), 404
 
     stem_suffix = parse_stem_suffix(request.form.get("stem_suffix"))
     include_json = parse_bool(request.form.get("include_json"))
@@ -88,45 +94,54 @@ def upload():
         if not f.filename:
             continue
         rel = form_rels[i] if i < len(form_rels) else (f.filename or "")
-        safe_rel = sanitize_relative_path(rel.replace("\\", "/"))
-        if not safe_rel:
-            bn = secure_filename(Path(rel.replace("\\", "/")).name)
-            if not bn:
+        safe_rel = sanitize_relative_path(rel)
+        if not safe_rel:  # path traversal or empty segments: keep the file, drop its folders
+            safe_rel = safe_filename(rel.replace("\\", "/").rsplit("/", 1)[-1])
+            if not safe_rel:
                 continue
-            safe_rel = bn
-        name = secure_filename(Path(safe_rel).name)
-        if not name or not is_image_file(Path(name)):
+        name = Path(safe_rel).name
+        if not is_image_file(Path(name)):
             continue
         rows.append((f, name, safe_rel))
 
     if not rows:
         if wants_json:
             return jsonify({"ok": False, "detail": "No supported images."}), 400
-        flash("Choose at least one supported image (JPEG, PNG, etc.).", "error")
+        flash(t("flash.no_supported_images"), "error")
         return redirect(url_for("home.index"))
 
-    job, job_out = new_job()
+    if requested_job and existing_job is not None:
+        job, job_out = requested_job, existing_job
+    else:
+        job, job_out = new_job()
     job_out_res = job_out.resolve()
     field_config = load_user_exif_field_config(settings.metadata_preferences_path)
 
     processed = 0
-    errors: list[str] = []
+    failures = [
+        {"name": name, "error": t("job.too_large", limit=settings.max_upload_mb)}
+        for name in request.form.getlist("too_large")
+    ]
     out_payload: list[dict[str, str | None]] = []
-    for i, (f, name, safe_rel) in enumerate(rows):
-        parent = Path(safe_rel).parent
-        out_subdir = job_out / parent
+    for i, (f, name, safe_rel) in enumerate(rows, start=int(offset)):
+        out_subdir = job_out / Path(safe_rel).parent
+        stem = Path(name).stem
+        out_name = unique_name(out_subdir, safe_filename(f"{stem}{stem_suffix}{Path(name).suffix}"))
         with staged_file(job, i, name) as dest:
             f.save(dest)
             result = process_image_extract_and_embed(
                 dest,
                 out_subdir,
                 field_config,
-                stem_suffix=stem_suffix,
-                output_stem=Path(safe_rel).stem,
+                stem_suffix="",
+                output_stem=Path(out_name).stem,
                 write_json=include_json,
             )
         if result.get("error"):
-            errors.append(f"{safe_rel}: {result['error']}")
+            error = (
+                t("job.unreadable") if result.get("error_code") == "unreadable" else result["error"]
+            )
+            failures.append({"name": safe_rel, "error": error})
             continue
         processed += 1
         rel_img = Path(result["output_image"]).resolve().relative_to(job_out_res).as_posix()
@@ -143,11 +158,15 @@ def upload():
             }
         )
 
+    record_failures(job, failures)
+    errors = [f"{f['name']}: {f['error']}" for f in failures]
     if processed == 0:
         if wants_json:
             detail = errors[0] if errors else "Processing failed."
-            return jsonify({"ok": False, "processed": 0, "errors": errors, "detail": detail}), 400
-        flash("Could not process any images. " + (errors[0] if errors else ""), "error")
+            return jsonify(
+                {"ok": False, "job_id": job, "processed": 0, "errors": errors, "detail": detail}
+            ), 400
+        flash(" ".join([t("flash.processing_failed"), *errors[:1]]), "error")
         return redirect(url_for("home.index"))
 
     session["last_job"] = job
@@ -163,9 +182,9 @@ def upload():
             }
         )
 
-    msg = f"Done. Saved metadata for {processed} image(s)."
+    msg = tn("flash.upload_done", processed)
     if errors:
-        msg += f" {len(errors)} could not be saved."
+        msg += " " + tn("flash.upload_partly_failed", len(errors))
     flash(msg, "success")
     return redirect(url_for("jobs.result", job_id=job))
 
@@ -174,21 +193,20 @@ def upload():
 def result(job_id: str):
     base = get_job_dir(job_id)
     if base is None:
-        flash("Those files aren't available anymore. Start from the home page.", "error")
+        flash(t("flash.job_expired"), "error")
         return redirect(url_for("home.index"))
     names = list_job_files(base)
     groups = categorize_job_files(names)
+    failures = load_failures(job_id)
 
     def _items(ns: list[str]) -> list[dict[str, str]]:
-        # Sort by the displayed name: stored names start with the job's item index.
-        return sorted(
-            ({"name": n, "label": friendly_job_filename(n)} for n in ns), key=lambda f: f["label"]
-        )
+        return [{"name": n, "label": n} for n in ns]
 
     return render_template(
         "job.html",
         job_id=job_id,
-        failed=max(request.args.get("failed", 0, type=int), 0),
+        failed=max(request.args.get("failed", 0, type=int), len(failures), 0),
+        failures=failures,
         file_count=len(names),
         image_files=_items(groups["images"]),
         video_files=_items(groups["videos"]),

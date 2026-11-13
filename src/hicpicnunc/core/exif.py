@@ -7,13 +7,14 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import piexif
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from PIL.ExifTags import GPSTAGS, TAGS
 
 from ..log import get_logger
@@ -86,7 +87,7 @@ def _deserialize_tag_value(val: Any) -> Any:
     return val
 
 
-def convert_to_degrees(value: Any) -> Optional[float]:
+def convert_to_degrees(value: Any) -> float | None:
     """Convert GPS coordinates from DMS to decimal degrees."""
     try:
         if not value:
@@ -110,7 +111,7 @@ def convert_to_degrees(value: Any) -> Optional[float]:
         return None
 
 
-def extract_gps_data_from_named_gps(gps_named: Dict[str, Any]) -> Dict[str, Any]:
+def extract_gps_data_from_named_gps(gps_named: dict[str, Any]) -> dict[str, Any]:
     """Add decimal lat/lon to a GPS IFD dict keyed by piexif GPS tag names."""
     gps_dict = dict(gps_named)
     lat = lon = None
@@ -214,9 +215,12 @@ def filter_nested_exif(
     out = {k: {} for k in IFD_CLASS_MAP}
     for ifd_hint, tag_name in specs_flat:
         if ifd_hint:
-            if ifd_hint in nested and tag_name in nested[ifd_hint]:
-                if not excluded(ifd_hint, tag_name):
-                    out.setdefault(ifd_hint, {})[tag_name] = nested[ifd_hint][tag_name]
+            if (
+                ifd_hint in nested
+                and tag_name in nested[ifd_hint]
+                and not excluded(ifd_hint, tag_name)
+            ):
+                out.setdefault(ifd_hint, {})[tag_name] = nested[ifd_hint][tag_name]
             continue
         for ifd_key, tags in nested.items():
             if tag_name in tags and not excluded(ifd_key, tag_name):
@@ -357,6 +361,10 @@ def extract_exif_data(
             "exif_fields_count": total_fields,
             "nested_filtered": filtered,
         }
+    except UnidentifiedImageError:
+        # Pillow's message names the staged copy's temporary path, which means nothing to
+        # the user: callers show their own text for this code.
+        return {"error": "Not a readable image", "error_code": "unreadable"}
     except Exception as e:
         return {"error": f"Failed: {e}"}
 
@@ -367,6 +375,9 @@ def _save_with_pillow(image_path: Path, output_path: Path, exif_bytes: bytes | N
         save_kw: dict[str, Any] = {}
         if exif_bytes is not None:
             save_kw["exif"] = exif_bytes
+        # Pillow only carries the color profile over for some formats (not WebP).
+        if icc_profile := img.info.get("icc_profile"):
+            save_kw["icc_profile"] = icc_profile
         if image_path.suffix.lower() == ".webp":
             save_kw["quality"] = 95
         img.save(output_path, format=img.format or "JPEG", **save_kw)
@@ -427,26 +438,63 @@ def embed_exif_subset(
         return False
 
 
-def apply_exif_timestamp(output_path: Path, nested_exif: dict[str, dict[str, Any]]) -> bool:
-    """Set an output file's modification time from its best available EXIF capture date."""
-    candidates = (
-        ("Exif", "DateTimeOriginal"),
-        ("Exif", "DateTimeDigitized"),
-        ("0th", "DateTime"),
-    )
-    for ifd_key, tag_name in candidates:
+_OFFSET_RE = re.compile(r"^([+-])(\d{2}):(\d{2})$")
+
+# Each capture-date tag and the tag holding its UTC offset (EXIF 2.31).
+_DATE_TAGS = (
+    (("Exif", "DateTimeOriginal"), ("Exif", "OffsetTimeOriginal")),
+    (("Exif", "DateTimeDigitized"), ("Exif", "OffsetTimeDigitized")),
+    (("0th", "DateTime"), ("Exif", "OffsetTime")),
+)
+
+
+def _exif_text(value: Any) -> str:
+    text = value.decode("ascii", errors="ignore") if isinstance(value, bytes) else str(value)
+    return text.strip().rstrip("\x00").strip()
+
+
+def _utc_offset(value: Any) -> timezone | None:
+    """Parse an EXIF offset such as "+02:00"; None when missing or malformed."""
+    match = _OFFSET_RE.match(_exif_text(value)) if value else None
+    if not match:
+        return None
+    sign, hours, minutes = match.groups()
+    delta = timedelta(hours=int(hours), minutes=int(minutes))
+    return timezone(-delta if sign == "-" else delta)
+
+
+def exif_capture_timestamp(nested_exif: dict[str, dict[str, Any]]) -> float | None:
+    """
+    POSIX timestamp of the best available capture date, or None.
+
+    EXIF dates are local wall-clock times. With their offset tag they map to an exact
+    instant; without one they are read in the exporting computer's time zone, which is
+    right for photos taken where they are exported.
+    """
+    for (ifd_key, tag_name), (offset_ifd, offset_tag) in _DATE_TAGS:
         raw = nested_exif.get(ifd_key, {}).get(tag_name)
         if not raw:
             continue
-        date_str = raw.decode("ascii", errors="ignore") if isinstance(raw, bytes) else str(raw)
         try:
-            timestamp = datetime.strptime(date_str, EXIF_DATE_FORMAT).timestamp()
-            os.utime(output_path, (timestamp, timestamp))
-            return True
-        except (OSError, ValueError) as e:
-            logger.warning("Could not set filesystem date for {}: {}", output_path.name, e)
-            return False
-    return False
+            taken = datetime.strptime(_exif_text(raw), EXIF_DATE_FORMAT)
+        except ValueError:
+            continue  # e.g. "0000:00:00 00:00:00": try the next date tag
+        offset = _utc_offset(nested_exif.get(offset_ifd, {}).get(offset_tag))
+        return (taken.replace(tzinfo=offset) if offset else taken).timestamp()
+    return None
+
+
+def apply_exif_timestamp(output_path: Path, nested_exif: dict[str, dict[str, Any]]) -> bool:
+    """Set an output file's modification time from its best available EXIF capture date."""
+    timestamp = exif_capture_timestamp(nested_exif)
+    if timestamp is None:
+        return False
+    try:
+        os.utime(output_path, (timestamp, timestamp))
+    except OSError as e:
+        logger.warning("Could not set filesystem date for {}: {}", output_path.name, e)
+        return False
+    return True
 
 
 def process_image_extract_and_embed(
@@ -460,8 +508,8 @@ def process_image_extract_and_embed(
     """
     Extract filtered EXIF, optionally save JSON, and save a new image with embedded subset.
 
-    If output_stem is set (local folder flow), JSON and image use that basename plus
-    stem_suffix (use stem_suffix="" to match original names for overwrite-style output).
+    The image is saved as output_stem (default: image_path's stem) plus stem_suffix plus
+    image_path's extension; the JSON sidecar, if any, as that name plus ".json".
 
     Returns paths and status for Flask / API use.
     """
@@ -472,21 +520,15 @@ def process_image_extract_and_embed(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     stem_base = output_stem if output_stem is not None else image_path.stem
-    if output_stem is not None:
-        json_stem_name = f"{stem_base}{stem_suffix}"
-        ext_result = extract_exif_data(
-            image_path,
-            output_dir,
-            field_config,
-            write_json=write_json,
-            json_stem_name=json_stem_name,
-        )
-    else:
-        ext_result = extract_exif_data(image_path, output_dir, field_config, write_json=write_json)
+    out_name = f"{stem_base}{stem_suffix}{image_path.suffix}"
+    # The sidecar keeps the image's full name ("IMG.jpg.json"), so IMG.jpg and IMG.heic
+    # never share one.
+    ext_result = extract_exif_data(
+        image_path, output_dir, field_config, write_json=write_json, json_stem_name=out_name
+    )
     if "error" in ext_result:
         return ext_result
 
-    out_name = f"{stem_base}{stem_suffix}{image_path.suffix}"
     output_image = output_dir / out_name
 
     ok = embed_exif_subset(image_path, output_image, field_config)

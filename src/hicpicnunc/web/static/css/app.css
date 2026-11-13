@@ -509,7 +509,7 @@ kbd {
   margin-bottom: 1rem;
 }
 
-.picker-google-card .export-progress {
+.export-progress {
   margin: 0 0 1rem;
   padding: 0.875rem 1rem;
   border: 1px solid var(--border);
@@ -577,6 +577,23 @@ kbd {
   color: #92400e;
 }
 
+.job-failed-notice p {
+  margin: 0;
+}
+
+.job-failed-list {
+  max-height: 12rem;
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  overflow-y: auto;
+  font-size: 0.875rem;
+}
+
+.job-failed-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .photos-container {
   margin-top: 1rem;
   padding: 1rem 0 0;
@@ -598,7 +615,8 @@ kbd {
   justify-content: flex-start;
 }
 
-#status.status {
+#status.status,
+#local-status.status {
   display: none;
   max-width: none;
   margin: 0 0 1rem;
@@ -929,6 +947,35 @@ body {
   stroke-width: 1.8;
 }
 .app-settings-menu[open] > summary { border-color: var(--primary); background: #edf5ee; }
+.app-quit {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #cbd8cc;
+  border-radius: 6px;
+  background: var(--surface);
+  color: #345444;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.app-quit:hover { border-color: var(--primary); background: #edf5ee; }
+
+/* Shown once the desktop app has stopped; the page underneath no longer works */
+.app-stopped {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgba(247, 251, 246, 0.96);
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 650;
+  text-align: center;
+}
+.app-stopped[hidden] { display: none; }
 
 .settings-popover {
   position: absolute;
@@ -1045,6 +1092,35 @@ body {
 .google-step-controls {
   grid-template-columns: repeat(2, minmax(12rem, 17rem));
   margin-top: 1rem;
+}
+
+.google-account-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.google-account-bar .signed-in-user {
+  word-break: break-all;
+}
+
+.google-account-bar .btn-signout {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.google-account-bar .btn-signout:hover {
+  color: var(--primary-hover);
 }
 
 .local-alternative {
