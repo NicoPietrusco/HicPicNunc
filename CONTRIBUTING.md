@@ -86,6 +86,8 @@ just test
 
 CI runs the tests with the Python version in `.python-version` on Ubuntu, Windows and macOS, and with the other versions in the `pyproject.toml` classifiers on Ubuntu. It also measures test coverage and fails if it drops below the `fail_under` threshold in `pyproject.toml`. Run `just coverage` to see the same report locally, with an HTML version in `htmlcov/`. If your change adds code, add tests for it rather than lowering the threshold.
 
+The picker JavaScript test (`tests/web/static/js/picker.test.mjs`) needs [Node.js](https://nodejs.org/). `just test` runs it through pytest and skips it when `node` isn't installed.
+
 If you change anything under `.github/`, pin new actions to a full commit SHA with the version as a comment (`uses: owner/action@<sha> # v1.2.3`), and set `persist-credentials: false` on `actions/checkout`.
 
 You can format the source code with:
