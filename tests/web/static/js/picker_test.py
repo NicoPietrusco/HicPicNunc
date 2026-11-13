@@ -10,5 +10,5 @@ def test_picker_security_rendering():
     if node is None:
         pytest.skip("Node.js is required for the picker JavaScript security regression test")
 
-    test_file = Path(__file__).with_name("picker_security.test.mjs")
-    subprocess.run([node, "--test", str(test_file)], check=True, cwd=test_file.parents[2])
+    test_file = Path(__file__).with_name("picker.test.mjs")
+    subprocess.run([node, "--test", str(test_file)], check=True, cwd=test_file.parents[4])

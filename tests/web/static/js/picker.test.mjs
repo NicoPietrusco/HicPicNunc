@@ -29,7 +29,11 @@ async function loadPicker() {
     };
     const context = vm.createContext({
         document,
-        window: { addEventListener() {}, removeEventListener() {} },
+        window: {
+            addEventListener() {},
+            removeEventListener() {},
+            i18n: { t: (key) => key, tn: (key) => key },
+        },
         fetch: async () => { throw new Error('Unexpected fetch'); },
         setTimeout() {},
         console,
@@ -37,7 +41,7 @@ async function loadPicker() {
         Date,
         encodeURIComponent,
     });
-    const source = await readFile(new URL('../../src/hicpicnunc/web/static/js/picker.js', import.meta.url), 'utf8');
+    const source = await readFile(new URL('../../../../src/hicpicnunc/web/static/js/picker.js', import.meta.url), 'utf8');
     vm.runInContext(source, context);
     return { context, elements };
 }
