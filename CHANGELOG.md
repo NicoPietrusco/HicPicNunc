@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.2](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.1...v0.4.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* add an Applications link to the macOS disk image ([#103](https://github.com/NicoPietrusco/HicPicNunc/issues/103)) ([2415f0a](https://github.com/NicoPietrusco/HicPicNunc/commit/2415f0a97cbbce7dc7aefb9ea5d4a1d65ed81dc5))
+* keep counting requests when a connection is reset ([#106](https://github.com/NicoPietrusco/HicPicNunc/issues/106)) ([704f0e6](https://github.com/NicoPietrusco/HicPicNunc/commit/704f0e6660873deccc34ad8015ca737fc9879ce5))
+* quit the desktop app when its last tab closes ([#105](https://github.com/NicoPietrusco/HicPicNunc/issues/105)) ([340e777](https://github.com/NicoPietrusco/HicPicNunc/commit/340e7773467cefd4f005913b00bdd2f0d03debec))
+
+## [0.4.1](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.0...v0.4.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* get new Picker download links when they expire ([#95](https://github.com/NicoPietrusco/HicPicNunc/issues/95)) ([d8e9657](https://github.com/NicoPietrusco/HicPicNunc/commit/d8e9657526b57d5a76c1311c639d1bb5d4269dd5))
+* restore dates on large folders by uploading in chunks ([#93](https://github.com/NicoPietrusco/HicPicNunc/issues/93)) ([72ddd58](https://github.com/NicoPietrusco/HicPicNunc/commit/72ddd58371baaab13ed2719ce54ebd72a5710ae9))
+
 ## [0.4.0](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.3.0...v0.4.0) (2026-10-18)
 
 

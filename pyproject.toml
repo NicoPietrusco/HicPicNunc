@@ -1,6 +1,6 @@
 [project]
 name = "hicpicnunc"
-version = "0.4.0"
+version = "0.4.2"
 description = "Google Photos Metadata Synchronizer - Extract and embed EXIF data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -46,6 +46,11 @@ Issues = "https://github.com/NicoPietrusco/HicPicNunc/issues"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+# The oldest uv that may touch uv.lock; CI installs exactly this one. Keep it at or below the
+# uv Dependabot runs with, or uv refuses to run and every Dependabot uv update fails.
+required-version = ">=0.12.18"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/hicpicnunc"]
 
@@ -67,8 +72,8 @@ dev = [
     "pyinstaller>=6.0.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "ruff>=0.1.0",
-    "ty>=0.0.1",
+    "ruff>=0.17.0",
+    "ty>=0.0.87",
     "zizmor>=1.30.1",
 ]
 

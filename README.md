@@ -1,5 +1,10 @@
 # Hic Pic Nunc
 
+[![Latest release](https://img.shields.io/github/v/release/NicoPietrusco/HicPicNunc)](https://github.com/NicoPietrusco/HicPicNunc/releases/latest)
+[![Quality checks](https://github.com/NicoPietrusco/HicPicNunc/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/NicoPietrusco/HicPicNunc/actions/workflows/quality.yml?query=branch%3Amain)
+[![Platforms: macOS | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)](#download-a-release)
+[![License: MIT](https://img.shields.io/github/license/NicoPietrusco/HicPicNunc)](LICENSE)
+
 **Where and when, kept in every pic.** Keep the dates and camera details of your photos and videos.
 
 *The name plays on the Latin* hic et nunc, *"here and now": the where and when of every shot, with the pic in between.*
@@ -22,6 +27,7 @@ Hic Pic Nunc exports selected photos and videos from Google Photos while keeping
 1. Sign in to Google Photos and choose the photos and videos to export.
 2. Open **Settings** in the top-right to choose whether camera details and GPS are included. Capture date is always kept when available. JSON sidecars are optional and off by default.
 3. Choose **Export**, then **Download ZIP** on the results page and extract it.
+4. When you're done, close the tab or choose **Quit** in the top-right. The desktop app stops on its own a few seconds after its last tab closes, but lets a download or sign-in in progress finish first. Opening the app while it's running brings back its page instead of starting a second copy.
 
 The ZIP is intentional: browsers assign today's date to individual downloads. Extracting the ZIP preserves the photo's capture date as its **file modification date**. Hic Pic Nunc cannot recover a capture date that is missing from the source image.
 
@@ -39,15 +45,31 @@ Download the right file from the [latest GitHub Release](https://github.com/Nico
 | Mac with Intel processor | `macOS-x64.dmg` |
 | Windows | `Windows-x64.zip` |
 
+### Check Your Download
+
+The apps are unsigned, but you can check that a file is the one built from this repository. Download `SHA256SUMS` from the same release into the same folder, then compare the checksum:
+
+- **macOS:** `shasum -a 256 -c SHA256SUMS --ignore-missing`
+- **Windows (PowerShell):** run `Get-FileHash HicPicNunc-Windows-x64.zip` and compare the result with the matching line of `SHA256SUMS`.
+
+With the [GitHub CLI](https://cli.github.com/), you can also verify where a file was built:
+
+```bash
+gh attestation verify <file> --repo NicoPietrusco/HicPicNunc
+```
+
 ### macOS Notice
 
 The macOS app is currently unsigned, so Gatekeeper may block it after download.
 
-1. Move `Hic Pic Nunc.app` into `Applications`.
-2. Control-click the app in Finder and choose **Open**.
-3. Confirm **Open** in the next dialog.
+1. Move `Hic Pic Nunc.app` into `Applications` and open it once. macOS blocks it: choose **Done**.
+2. Open **System Settings → Privacy & Security** and scroll down to **Security**.
+3. Click **Open Anyway** next to the message about Hic Pic Nunc.
+4. Confirm with **Open Anyway**, then enter your password or use Touch ID.
 
-If macOS still blocks an app you intentionally downloaded from this repository, run:
+On macOS 14 and earlier, you can instead Control-click the app in Finder, choose **Open**, and confirm **Open** in the next dialog.
+
+If **Open Anyway** keeps bringing you back to the same warning (this happened on a standard, non-administrator account), or macOS still blocks an app you intentionally downloaded from this repository, run this in Terminal:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/Hic Pic Nunc.app"

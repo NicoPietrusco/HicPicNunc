@@ -11,10 +11,11 @@ from flask import Flask, request
 
 from ..core.jobs import prune_expired_jobs
 from ..core.metadata_fields import load_metadata_preferences
+from ..desktop import Lifecycle
 from ..log import setup_logger
 from ..settings import settings
 from .i18n import current_language, js_catalog, t, tn
-from .routes import auth, home, jobs, picker
+from .routes import auth, desktop, home, jobs, picker
 
 _LOCAL_HOSTNAMES = {"127.0.0.1", "localhost", "[::1]"}
 
@@ -27,7 +28,8 @@ def is_local_host_header(host: str) -> bool:
     return hostname in _LOCAL_HOSTNAMES
 
 
-def create_app() -> Flask:
+def create_app(lifecycle: Lifecycle | None = None) -> Flask:
+    """Build the app; with a lifecycle, pages report when they open and close (desktop builds)."""
     setup_logger()
     load_dotenv(settings.resource_dir / ".env")
 
@@ -60,9 +62,13 @@ def create_app() -> Flask:
             "t": t,
             "tn": tn,
             "js_i18n": js_catalog(),
+            "lifecycle_enabled": lifecycle is not None,
         }
 
-    for blueprint in (home.bp, auth.bp, jobs.bp, picker.bp):
+    for blueprint in (home.bp, auth.bp, jobs.bp, picker.bp, desktop.bp):
         app.register_blueprint(blueprint)
+
+    if lifecycle:
+        app.extensions["lifecycle"] = lifecycle
 
     return app

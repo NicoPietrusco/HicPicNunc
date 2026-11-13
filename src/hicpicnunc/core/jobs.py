@@ -5,6 +5,7 @@ Export jobs: each job is a folder of processed photos under data/outputs/<uuid>.
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import shutil
@@ -71,6 +72,27 @@ def get_job_dir(job_id: str) -> Path | None:
         return None
     job_dir = settings.web_output_dir / job_id
     return job_dir if job_dir.is_dir() else None
+
+
+def _failures_path(job_id: str) -> Path:
+    # Next to the job folder, not inside it, so it is never listed or zipped; it starts with
+    # the job id, so prune_expired_jobs removes it along with the job.
+    return settings.web_output_dir / f"{job_id}.failed.json"
+
+
+def record_failures(job_id: str, failures: list[dict[str, str]]) -> None:
+    """Add {"name", "error"} entries to the job's list of files that couldn't be saved."""
+    if failures:
+        path = _failures_path(job_id)
+        path.write_text(json.dumps(load_failures(job_id) + failures), encoding="utf-8")
+
+
+def load_failures(job_id: str) -> list[dict[str, str]]:
+    """Files of the job that couldn't be saved, in the order they were recorded."""
+    try:
+        return json.loads(_failures_path(job_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
 
 
 @contextmanager

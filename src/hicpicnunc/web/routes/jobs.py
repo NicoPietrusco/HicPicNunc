@@ -24,7 +24,9 @@ from ...core.jobs import (
     is_image_file,
     iter_job_zip,
     list_job_files,
+    load_failures,
     new_job,
+    record_failures,
     resolve_job_file,
     staged_file,
 )
@@ -54,6 +56,15 @@ def categorize_job_files(names: list[str]) -> dict[str, list[str]]:
 
 @bp.post("/upload")
 def upload():
+    """
+    Restore dates on local photos and write them into an output job folder.
+
+    The browser sends a large selection in chunks, so no request exceeds MAX_UPLOAD_MB: the
+    first creates the job, later ones pass its job_id plus the offset of their first file in
+    the whole selection. A plain form POST (no job_id) processes everything in one job.
+    Files over the size limit stay in the browser; their names come as too_large, so the
+    result page lists them with the files that failed here.
+    """
     wants_json = (
         "application/json" in (request.headers.get("Accept") or "").lower()
         and request.headers.get("X-Requested-With") == "XMLHttpRequest"
@@ -65,6 +76,14 @@ def upload():
             return jsonify({"ok": False, "detail": "No file was uploaded."}), 400
         flash(t("flash.no_file"), "error")
         return redirect(url_for("home.index"))
+
+    offset = request.form.get("offset", "0")
+    if not offset.isdecimal():  # isdigit() also accepts "²", which int() rejects
+        return jsonify({"ok": False, "detail": "offset must be a non-negative integer"}), 400
+    requested_job = request.form.get("job_id")
+    existing_job = get_job_dir(requested_job) if requested_job else None
+    if requested_job and existing_job is None:
+        return jsonify({"ok": False, "detail": "Unknown job"}), 404
 
     stem_suffix = parse_stem_suffix(request.form.get("stem_suffix"))
     include_json = parse_bool(request.form.get("include_json"))
@@ -91,14 +110,20 @@ def upload():
         flash(t("flash.no_supported_images"), "error")
         return redirect(url_for("home.index"))
 
-    job, job_out = new_job()
+    if requested_job and existing_job is not None:
+        job, job_out = requested_job, existing_job
+    else:
+        job, job_out = new_job()
     job_out_res = job_out.resolve()
     field_config = load_user_exif_field_config(settings.metadata_preferences_path)
 
     processed = 0
-    errors: list[str] = []
+    failures = [
+        {"name": name, "error": t("job.too_large", limit=settings.max_upload_mb)}
+        for name in request.form.getlist("too_large")
+    ]
     out_payload: list[dict[str, str | None]] = []
-    for i, (f, name, safe_rel) in enumerate(rows):
+    for i, (f, name, safe_rel) in enumerate(rows, start=int(offset)):
         out_subdir = job_out / Path(safe_rel).parent
         stem = Path(name).stem
         out_name = unique_name(out_subdir, safe_filename(f"{stem}{stem_suffix}{Path(name).suffix}"))
@@ -113,7 +138,10 @@ def upload():
                 write_json=include_json,
             )
         if result.get("error"):
-            errors.append(f"{safe_rel}: {result['error']}")
+            error = (
+                t("job.unreadable") if result.get("error_code") == "unreadable" else result["error"]
+            )
+            failures.append({"name": safe_rel, "error": error})
             continue
         processed += 1
         rel_img = Path(result["output_image"]).resolve().relative_to(job_out_res).as_posix()
@@ -130,10 +158,14 @@ def upload():
             }
         )
 
+    record_failures(job, failures)
+    errors = [f"{f['name']}: {f['error']}" for f in failures]
     if processed == 0:
         if wants_json:
             detail = errors[0] if errors else "Processing failed."
-            return jsonify({"ok": False, "processed": 0, "errors": errors, "detail": detail}), 400
+            return jsonify(
+                {"ok": False, "job_id": job, "processed": 0, "errors": errors, "detail": detail}
+            ), 400
         flash(" ".join([t("flash.processing_failed"), *errors[:1]]), "error")
         return redirect(url_for("home.index"))
 
@@ -165,6 +197,7 @@ def result(job_id: str):
         return redirect(url_for("home.index"))
     names = list_job_files(base)
     groups = categorize_job_files(names)
+    failures = load_failures(job_id)
 
     def _items(ns: list[str]) -> list[dict[str, str]]:
         return [{"name": n, "label": n} for n in ns]
@@ -172,7 +205,8 @@ def result(job_id: str):
     return render_template(
         "job.html",
         job_id=job_id,
-        failed=max(request.args.get("failed", 0, type=int), 0),
+        failed=max(request.args.get("failed", 0, type=int), len(failures), 0),
+        failures=failures,
         file_count=len(names),
         image_files=_items(groups["images"]),
         video_files=_items(groups["videos"]),

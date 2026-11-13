@@ -1,7 +1,7 @@
 // Google Photos Picker — local desktop OAuth (server session); no GIS / no Bearer from the browser
 const { t, tn } = window.i18n;
 let authenticated = false;
-/** @type {{ base_url: string, filename: string, type: ?string, mime_type: ?string, create_time: ?string, processing_status: ?string }[]} */
+/** @type {{ id: ?string, base_url: string, filename: string, type: ?string, mime_type: ?string, create_time: ?string, processing_status: ?string }[]} */
 let loadedPickerItems = [];
 
 function showStatus(message, type) {
@@ -42,6 +42,7 @@ function itemToPayload(item) {
         (item.mediaFile && item.mediaFile.filename) ||
         'photo.jpg';
     return {
+        id: item.id || null, // lets the server get a new base_url once this one expires
         base_url: baseUrl,
         filename,
         type: item.type || null,
@@ -71,6 +72,64 @@ function pickerImageProxySrc(baseUrl) {
     return `/api/picker-image?url=${encodeURIComponent(u)}`;
 }
 
+function appendMetaItem(meta, icon, value, title = '') {
+    const row = document.createElement('div');
+    row.className = 'meta-item';
+    const iconElement = document.createElement('span');
+    iconElement.textContent = icon;
+    const valueElement = document.createElement('span');
+    valueElement.textContent = value;
+    if (title) valueElement.title = title;
+    row.append(iconElement, valueElement);
+    meta.appendChild(row);
+}
+
+function createPhotoCard(item, includeLocation = false) {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+
+    const imgSrc = pickerImageProxySrc(item.baseUrl || itemToPayload(item).base_url || '');
+    if (imgSrc) {
+        const image = document.createElement('img');
+        image.src = imgSrc;
+        image.alt = '';
+        image.loading = 'lazy';
+        card.appendChild(image);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'photo-info';
+    const heading = document.createElement('h3');
+    heading.textContent = item.filename || t('js.picker.untitled');
+    heading.title = item.filename || t('js.picker.untitled');
+    info.appendChild(heading);
+
+    const meta = document.createElement('div');
+    meta.className = 'photo-meta';
+    const width = item.mediaMetadata?.width || '?';
+    const height = item.mediaMetadata?.height || '?';
+    const created = item.mediaMetadata?.creationTime
+        ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
+        : t('js.picker.unknown');
+    const mime = item.mimeType?.split('/')[1]?.toUpperCase() || t('js.picker.unknown');
+    appendMetaItem(meta, '📐', `${width} × ${height}`);
+    appendMetaItem(meta, '📅', created);
+    appendMetaItem(meta, '📄', mime);
+
+    if (includeLocation) {
+        const location = item.location || item.mediaMetadata?.location;
+        const hasLocation = location && (location.latitude || location.longitude);
+        if (hasLocation) {
+            const locationText = `${location.latitude?.toFixed(6)}, ${location.longitude?.toFixed(6)}`;
+            appendMetaItem(meta, '📍', locationText, t('js.picker.lat_lng'));
+        }
+    }
+
+    info.appendChild(meta);
+    card.appendChild(info);
+    return card;
+}
+
 function setLoadedPickerItems(items) {
     loadedPickerItems = (items || [])
         .map(itemToPayload)
@@ -87,53 +146,6 @@ function setLoadedPickerItems(items) {
 const EXPORT_CHUNK_SIZE = 3;
 const EXPORT_PARALLEL_REQUESTS = 3;
 
-function warnBeforeLeaving(event) {
-    event.preventDefault();
-    event.returnValue = '';
-}
-
-function formatRemaining(seconds) {
-    if (seconds < 60) return t('js.picker.less_than_a_minute_left');
-    return tn('js.picker.minutes_left', Math.round(seconds / 60));
-}
-
-function exportProgress(total) {
-    const box = document.getElementById('export-progress');
-    const bar = document.getElementById('export-progress-bar');
-    const label = document.getElementById('export-progress-label');
-    const count = document.getElementById('export-progress-count');
-    const detail = document.getElementById('export-progress-detail');
-    const startedAt = Date.now();
-    bar.max = total;
-    bar.value = 0;
-    label.textContent = t('js.picker.exporting');
-    count.textContent = t('js.picker.progress_count', { done: 0, total });
-    detail.textContent = t('js.picker.keep_open');
-    box.hidden = false;
-    return {
-        update(done, failed) {
-            bar.value = done;
-            count.textContent = t('js.picker.progress_count', { done, total });
-            const parts = [];
-            if (failed) parts.push(tn('js.picker.failed_part', failed));
-            if (done >= EXPORT_CHUNK_SIZE && done < total) {
-                const perPhoto = (Date.now() - startedAt) / 1000 / done;
-                parts.push(formatRemaining(perPhoto * (total - done)));
-            }
-            parts.push(t('js.picker.keep_open_part'));
-            const text = parts.join(' · ');
-            detail.textContent = text.charAt(0).toUpperCase() + text.slice(1) + '.';
-        },
-        finish() {
-            label.textContent = t('js.picker.opening_files');
-            detail.textContent = '';
-        },
-        hide() {
-            box.hidden = true;
-        },
-    };
-}
-
 /** POST one chunk. A 500 that still names the job means only this chunk's items failed. */
 async function exportChunk(chunk, jobId, includeJson) {
     const r = await fetch('/api/process-google-batch', {
@@ -147,6 +159,11 @@ async function exportChunk(chunk, jobId, includeJson) {
         }),
     });
     const data = await r.json().catch(() => ({}));
+    if (data.code === 'selection_expired') {
+        const error = new Error(t('js.picker.selection_expired'));
+        error.selectionExpired = true;
+        throw error;
+    }
     if (!r.ok && !data.job_id) throw new Error(data.detail || data.error || r.statusText);
     return data;
 }
@@ -170,7 +187,10 @@ async function extractAllExif() {
     if (btn) btn.disabled = true;
     if (pickerBtn) pickerBtn.disabled = true;
     hideStatus();
-    const progress = exportProgress(total);
+    const progress = exportProgress('export', total, {
+        label: t('js.picker.exporting'),
+        etaAfter: EXPORT_CHUNK_SIZE,
+    });
     window.addEventListener('beforeunload', warnBeforeLeaving);
 
     let done = 0;
@@ -204,7 +224,10 @@ async function extractAllExif() {
     } catch (e) {
         window.removeEventListener('beforeunload', warnBeforeLeaving);
         progress.hide();
-        showStatus(t('js.picker.failed_after', { done, total, message: e.message }), 'error');
+        const message = e.selectionExpired
+            ? e.message
+            : t('js.progress.failed_after', { done, total, message: e.message });
+        showStatus(message, 'error');
         if (btn) btn.disabled = false;
         if (pickerBtn) pickerBtn.disabled = false;
         return;
@@ -349,57 +372,7 @@ function displayPhotos(items) {
     const grid = document.createElement('div');
     grid.className = 'photos-grid';
 
-    items.forEach((item) => {
-        const card = document.createElement('div');
-        card.className = 'photo-card';
-
-        const baseUrl = item.baseUrl || itemToPayload(item).base_url || '';
-        const imgSrc = pickerImageProxySrc(baseUrl);
-        const width = item.mediaMetadata?.width || '?';
-        const height = item.mediaMetadata?.height || '?';
-        const created = item.mediaMetadata?.creationTime
-            ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
-            : t('js.picker.unknown');
-
-        const location = item.location || item.mediaMetadata?.location;
-        const hasLocation = location && (location.latitude || location.longitude);
-        const locationText = hasLocation
-            ? `${location.latitude?.toFixed(6)}, ${location.longitude?.toFixed(6)}`
-            : null;
-
-        card.innerHTML = `
-            ${imgSrc ? `<img src="${imgSrc}" alt="" loading="lazy">` : ''}
-            <div class="photo-info">
-                <h3 title="${item.filename || t('js.picker.untitled')}">${item.filename || t('js.picker.untitled')}</h3>
-                <div class="photo-meta">
-                    <div class="meta-item">
-                        <span>📐</span>
-                        <span>${width} × ${height}</span>
-                    </div>
-                    <div class="meta-item">
-                        <span>📅</span>
-                        <span>${created}</span>
-                    </div>
-                    <div class="meta-item">
-                        <span>📄</span>
-                        <span>${item.mimeType?.split('/')[1]?.toUpperCase() || t('js.picker.unknown')}</span>
-                    </div>
-                    ${
-                        locationText
-                            ? `
-                    <div class="meta-item">
-                        <span>📍</span>
-                        <span title="${t('js.picker.lat_lng')}">${locationText}</span>
-                    </div>
-                    `
-                            : ''
-                    }
-                </div>
-            </div>
-        `;
-
-        grid.appendChild(card);
-    });
+    items.forEach((item) => grid.appendChild(createPhotoCard(item, true)));
 
     container.innerHTML = '';
     container.appendChild(grid);
@@ -471,41 +444,7 @@ async function loadSelectedPhotos() {
         const grid = document.createElement('div');
         grid.className = 'photos-grid';
 
-        data.items.forEach((item) => {
-            const card = document.createElement('div');
-            card.className = 'photo-card';
-
-            const baseUrl = item.baseUrl || '';
-            const imgSrc = pickerImageProxySrc(baseUrl);
-            const width = item.mediaMetadata?.width || '?';
-            const height = item.mediaMetadata?.height || '?';
-            const created = item.mediaMetadata?.creationTime
-                ? new Date(item.mediaMetadata.creationTime).toLocaleDateString()
-                : t('js.picker.unknown');
-
-            card.innerHTML = `
-                ${imgSrc ? `<img src="${imgSrc}" alt="" loading="lazy">` : ''}
-                <div class="photo-info">
-                    <h3 title="${item.filename || t('js.picker.untitled')}">${item.filename || t('js.picker.untitled')}</h3>
-                    <div class="photo-meta">
-                        <div class="meta-item">
-                            <span>📐</span>
-                            <span>${width} × ${height}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span>📅</span>
-                            <span>${created}</span>
-                        </div>
-                        <div class="meta-item">
-                            <span>📄</span>
-                            <span>${item.mimeType?.split('/')[1]?.toUpperCase() || t('js.picker.unknown')}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            grid.appendChild(card);
-        });
+        data.items.forEach((item) => grid.appendChild(createPhotoCard(item)));
 
         container.innerHTML = '';
         container.appendChild(grid);
@@ -513,12 +452,18 @@ async function loadSelectedPhotos() {
         showStatus(t('js.picker.loaded', { selection: describeSelection(data.items) }), 'success');
     } catch (error) {
         setLoadedPickerItems([]);
-        document.getElementById('photos-content').innerHTML = `
-            <div class="empty-state">
-                <div class="empty-state-icon">⚠️</div>
-                <h3>${t('js.picker.error_title')}</h3>
-                <p>${error.message}</p>
-            </div>`;
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        const icon = document.createElement('div');
+        icon.className = 'empty-state-icon';
+        icon.textContent = '⚠️';
+        const heading = document.createElement('h3');
+        heading.textContent = t('js.picker.error_title');
+        const message = document.createElement('p');
+        message.textContent = error.message;
+        emptyState.append(icon, heading, message);
+        const container = document.getElementById('photos-content');
+        container.replaceChildren(emptyState);
     }
 }
 

@@ -38,12 +38,16 @@ package:
 # Create a distributable macOS disk image after `just package`
 [group('Packaging')]
 package-macos: package
-    hdiutil create -volname "Hic Pic Nunc" -srcfolder "dist/Hic Pic Nunc.app" -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
+    rm -rf dist/dmg
+    mkdir dist/dmg
+    ditto "dist/Hic Pic Nunc.app" "dist/dmg/Hic Pic Nunc.app"
+    ln -s /Applications dist/dmg/Applications
+    hdiutil create -volname "Hic Pic Nunc" -srcfolder dist/dmg -ov -format UDZO "dist/HicPicNunc-macOS-{{mac_arch}}.dmg"
+    rm -rf dist/dmg
 
 [group('Setup')]
 setup:
-    @echo "Creating venv (Python 3.11)..."
-    uv venv --python python3.11 .venv
+    @echo "Creating venv (Python from .python-version) and installing dependencies..."
     uv sync --group dev
     @echo "Done."
 
@@ -68,7 +72,7 @@ lint-workflows:
 
 [group('Quality')]
 typecheck:
-    uv run ty check src/
+    uv run ty check src/ tests/
 
 [group('Quality')]
 test:

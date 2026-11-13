@@ -81,6 +81,18 @@ class Settings:
         return self.app_data_dir / "settings" / "metadata_preferences.json"
 
     @property
+    def auto_exit(self) -> bool:
+        """Stop the desktop app when its last browser tab closes (HICPICNUNC_KEEP_RUNNING=1 turns it off)."""
+        if os.environ.get("HICPICNUNC_KEEP_RUNNING"):
+            return False
+        return bool(getattr(sys, "frozen", False))
+
+    @property
+    def instance_path(self) -> Path:
+        """Port of the running desktop app, so a second launch opens it instead."""
+        return self.app_data_dir / "state" / "instance.json"
+
+    @property
     def log_path(self) -> Path:
         """Log file for desktop builds, which have no terminal."""
         return self.app_data_dir / "logs" / "hicpicnunc.log"

@@ -83,8 +83,14 @@
             </div>
           </section>
         </details>
+        {% if lifecycle_enabled %}
+        <button type="button" class="app-quit" id="app-quit" title="{{ t('header.quit_tooltip') }}">{{ t('header.quit') }}</button>
+        {% endif %}
       </div>
     </header>
+    {% if lifecycle_enabled %}
+    <div class="app-stopped" id="app-stopped" role="alert" hidden></div>
+    {% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -94,6 +100,9 @@
     {% endwith %}
     {% block body %}{% endblock %}
     <script src="{{ url_for('static', filename='js/metadata_preferences.js') }}" defer></script>
+    {% if lifecycle_enabled %}
+    <script src="{{ url_for('static', filename='js/desktop.js') }}" defer></script>
+    {% endif %}
     <footer class="site-footer">
       {% if request.endpoint != 'home.index' %}
       <a href="{{ url_for('home.index') }}">{{ t('footer.back_home') }}</a>

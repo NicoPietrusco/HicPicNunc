@@ -139,15 +139,17 @@ def test_page_receives_the_script_strings(app) -> None:
     with app.test_request_context(headers={"Accept-Language": "it"}):
         catalog = js_catalog()
 
+    strings = catalog["strings"]
+    assert isinstance(strings, dict)
     assert catalog["lang"] == "it"
-    assert catalog["strings"]["js.picker.exporting"] == "Esportazione in corso…"
-    assert all(key.startswith("js.") for key in catalog["strings"])
+    assert strings["js.picker.exporting"] == "Esportazione in corso…"
+    assert all(key.startswith("js.") for key in strings)
 
 
 def test_plural_forms_follow_the_count(app) -> None:
     with app.test_request_context(headers={"Accept-Language": "it"}):
-        assert tn("js.picker.minutes_left", 1) == "manca circa 1 minuto"
-        assert tn("js.picker.minutes_left", 3) == "mancano circa 3 minuti"
+        assert tn("js.progress.minutes_left", 1) == "manca circa 1 minuto"
+        assert tn("js.progress.minutes_left", 3) == "mancano circa 3 minuti"
         assert tn("job.image_count", 0) == "0 immagini"
 
 
@@ -169,7 +171,7 @@ def test_missing_keys_fall_back_to_english_then_to_the_key(app, monkeypatch) -> 
 
 
 def test_placeholders_without_a_value_are_left_as_they_are() -> None:
-    assert t("js.picker.progress_count", done=1) == "1 of {total}"
+    assert t("js.progress.count", done=1) == "1 of {total}"
 
 
 def test_t_on_a_plural_string_uses_the_other_form() -> None:

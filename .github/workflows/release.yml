@@ -42,7 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             name: macOS-arm64
             arch: arm64
           - os: macos-15-intel
@@ -56,10 +56,12 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           # A cache written by PR runs must never feed a release build.
           enable-cache: false
+          # The minimum in required-version (pyproject.toml), as in quality.yml.
+          resolution-strategy: lowest
       - name: Install locked build tools
         run: uv sync --group dev --locked
       - name: Check the tag matches the package version
@@ -78,7 +80,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           uv run ruff check src/ tests/
-          uv run ty check src/
+          uv run ty check src/ tests/
           uv run pytest
       - name: Add the release OAuth client
         if: github.event_name != 'pull_request'
@@ -109,7 +111,12 @@ jobs:
         if: runner.os == 'macOS'
         env:
           ARCH: ${{ matrix.arch }}
-        run: hdiutil create -volname "Hic Pic Nunc" -srcfolder "dist/Hic Pic Nunc.app" -ov -format UDZO "dist/HicPicNunc-macOS-${ARCH}.dmg"
+        # The Applications link gives users a place to drag the app to.
+        run: |
+          mkdir dist/dmg
+          mv "dist/Hic Pic Nunc.app" dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "Hic Pic Nunc" -srcfolder dist/dmg -ov -format UDZO "dist/HicPicNunc-macOS-${ARCH}.dmg"
       - name: Package Windows archive
         if: runner.os == 'Windows'
         shell: pwsh
@@ -127,12 +134,22 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      attestations: write
       contents: write
+      id-token: write
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: release-assets
           merge-multiple: true
+      - name: Generate checksums
+        working-directory: release-assets
+        run: sha256sum -- * > SHA256SUMS
+      # Before the upload, so that no app is published without its attestation.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: release-assets/SHA256SUMS
       # release-please creates the release, this job only attaches the apps to it.
       - name: Attach the apps to the release
         env:

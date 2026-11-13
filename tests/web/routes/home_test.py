@@ -14,6 +14,16 @@ def test_index_renders_saved_preferences(client) -> None:
     assert 'id="metadata-camera-details" checked' in page
 
 
+def test_index_gives_the_local_upload_its_limits(client, monkeypatch) -> None:
+    monkeypatch.setenv("MAX_UPLOAD_MB", "20")
+
+    page = client.get("/").get_data(as_text=True)
+
+    assert "window.__MAX_UPLOAD_BYTES__ = 20971520;" in page
+    assert '".heic"' in page and '".jpg"' in page
+    assert 'id="local-progress"' in page
+
+
 def test_preferences_are_saved_to_disk(client, data_dir) -> None:
     resp = client.post(
         "/api/metadata-preferences", json={"preferences": {"camera_details": False, "x": 1}}

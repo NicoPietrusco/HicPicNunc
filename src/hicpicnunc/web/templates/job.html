@@ -15,7 +15,16 @@
       {% if parts %}: {{ parts|join(', ') }}{% endif %}
     </p>
   {% if failed %}
-    <p class="job-failed-notice" role="status">{{ tn('job.failed', failed) }}</p>
+    <div class="job-failed-notice" role="status">
+      <p>{{ tn('job.failed', failed) }}</p>
+      {% if failures %}
+      <ul class="job-failed-list">
+        {% for f in failures %}
+        <li><span class="job-failed-name">{{ f.name }}</span> — {{ f.error }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
   {% endif %}
   {% if file_count %}
   <div class="job-actions job-actions--save">

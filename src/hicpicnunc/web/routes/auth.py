@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlsplit
-
 from flask import Blueprint, flash, jsonify, redirect, request, url_for
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import WSGITimeoutError
@@ -19,6 +17,7 @@ from ...google_photos.oauth import (
 from ...google_photos.picker import credentials_from_session_json, ensure_fresh
 from ...log import get_logger
 from ...settings import settings
+from ..guards import is_cross_site_request
 from ..i18n import t
 from ..session import clear_session, current_session, save_token, start_session
 
@@ -97,11 +96,7 @@ def check_auth():
 
 @bp.post("/auth/logout")
 def logout():
-    origin = request.headers.get("Origin")
-    if origin and urlsplit(origin).netloc != request.host:
-        return jsonify({"ok": False, "error": "forbidden"}), 403
-
-    if request.headers.get("Sec-Fetch-Site") == "cross-site":
+    if is_cross_site_request():
         return jsonify({"ok": False, "error": "forbidden"}), 403
 
     # Attempt to find token to revoke from in-memory session or token file
