@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.3](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.2...v0.4.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* render picker metadata as text ([#33](https://github.com/NicoPietrusco/HicPicNunc/issues/33)) ([3ffccb1](https://github.com/NicoPietrusco/HicPicNunc/commit/3ffccb1d449990245a18292c10121640c87c7123))
+* support HEIC photos and keep capture dates for PNG/HEIC ([#5](https://github.com/NicoPietrusco/HicPicNunc/issues/5)) ([a3982fc](https://github.com/NicoPietrusco/HicPicNunc/commit/a3982fcea0a1780038a30f84e3dc03fa274a6ac2))
+
 ## [0.4.2](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.1...v0.4.2) (2026-11-03)
 
 
