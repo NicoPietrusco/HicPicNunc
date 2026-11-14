@@ -6,6 +6,7 @@ import json
 import threading
 import urllib.request
 from functools import partial
+from pathlib import Path
 
 import pytest
 
@@ -121,3 +122,49 @@ def test_a_desktop_build_records_its_port_and_stops_on_quit(desktop, monkeypatch
 
     assert not thread.is_alive()
     assert not instance.exists()
+
+
+@pytest.fixture
+def pre_rename_install(monkeypatch, tmp_path):
+    """A Linux desktop build whose data is still in the pre-rename folder.
+
+    Returns the instance files main() looked up; another copy is always "running", so
+    main() returns right after the lookup.
+    """
+    monkeypatch.setattr(entry.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(entry.sys, "platform", "linux")
+    monkeypatch.delenv("HICPICNUNC_DATA_DIR", raising=False)
+    monkeypatch.delenv("GPHOTOMETASYNC_DATA_DIR", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    (tmp_path / "gphotometasync" / "state").mkdir(parents=True)
+    looked_up = []
+
+    def running_instance_url(path):
+        looked_up.append(path)
+        return "http://127.0.0.1:5123"
+
+    monkeypatch.setattr(entry, "running_instance_url", running_instance_url)
+    monkeypatch.setattr(entry.webbrowser, "open", lambda url: None)
+    return looked_up
+
+
+def test_a_desktop_build_moves_the_pre_rename_folder_before_anything_else(
+    pre_rename_install, tmp_path
+) -> None:
+    entry.main()
+
+    assert pre_rename_install == [tmp_path / "hicpicnunc" / "state" / "instance.json"]
+    assert not (tmp_path / "gphotometasync").exists()
+
+
+def test_a_desktop_build_keeps_the_old_folder_when_it_cannot_move_it(
+    pre_rename_install, monkeypatch, tmp_path
+) -> None:
+    def locked(self, target):
+        raise PermissionError("in use by another process")
+
+    monkeypatch.setattr(Path, "rename", locked)
+
+    entry.main()
+
+    assert pre_rename_install == [tmp_path / "gphotometasync" / "state" / "instance.json"]

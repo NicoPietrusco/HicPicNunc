@@ -29,7 +29,13 @@ logger = get_logger(__name__)
 
 def main() -> None:
     desktop = getattr(sys, "frozen", False)
+    moved_to = migration_error = None
     if desktop:
+        # Before anything opens files in the data folder, including the log.
+        try:
+            moved_to = settings.migrate_legacy_data_dir()
+        except OSError as e:
+            migration_error = e
         running = running_instance_url(settings.instance_path)
         if running:
             logger.info("Hic Pic Nunc is already running at {}", running)
@@ -38,6 +44,14 @@ def main() -> None:
 
     lifecycle = Lifecycle() if settings.auto_exit else None
     app = create_app(lifecycle)
+    if moved_to:
+        logger.info("Moved the data folder to its new name: {}", moved_to)
+    if migration_error:
+        logger.warning(
+            "Couldn't rename the data folder, using {} until the next start: {}",
+            settings.app_data_dir,
+            migration_error,
+        )
     # Use a stable development port, but avoid collisions in a frozen desktop app.
     default_port = "0" if desktop else "5001"
     port = int(os.environ.get("PORT", default_port))
