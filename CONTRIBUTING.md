@@ -4,6 +4,17 @@ Thanks for contributing to Hic Pic Nunc!
 
 This guide covers the local development setup, project structure, checks, and workflow for contributing changes.
 
+## Where to start
+
+Looking for something to work on? These issues are ready for outside contributors:
+
+* [`good first issue`](https://github.com/NicoPietrusco/HicPicNunc/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22): small and well scoped, a good way to learn the codebase.
+* [`help wanted`](https://github.com/NicoPietrusco/HicPicNunc/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22): larger but self-contained.
+
+Each issue describes the problem, the files involved and the acceptance criteria.
+
+Before you start, comment on the issue so it can be assigned to you, and so nobody else works on the same thing. If you stop working on it, just say so in a comment. If an issue or its pull request has no update for a few weeks, someone else may pick it up, building on your commits so your work keeps your name.
+
 ## Setup
 
 ### Prerequisites
