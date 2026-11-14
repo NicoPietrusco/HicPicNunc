@@ -1,6 +1,6 @@
 [project]
 name = "hicpicnunc"
-version = "0.4.3"
+version = "0.5.0"
 description = "Google Photos Metadata Synchronizer - Extract and embed EXIF data"
 readme = "README.md"
 requires-python = ">=3.11"

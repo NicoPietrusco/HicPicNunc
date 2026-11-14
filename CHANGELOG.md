@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.3...v0.5.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* drop the Intel macOS build ([#117](https://github.com/NicoPietrusco/HicPicNunc/issues/117))
+
+### Features
+
+* drop the Intel macOS build ([#117](https://github.com/NicoPietrusco/HicPicNunc/issues/117)) ([5bc9049](https://github.com/NicoPietrusco/HicPicNunc/commit/5bc9049d824ba0f6db957519120616794283600d))
+* rename the data folder to HicPicNunc ([#115](https://github.com/NicoPietrusco/HicPicNunc/issues/115)) ([1b31a07](https://github.com/NicoPietrusco/HicPicNunc/commit/1b31a078c17efbafbfe9304e1aba51f295010a24))
+
 ## [0.4.3](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.2...v0.4.3) (2026-11-13)
 
 
