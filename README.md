@@ -42,8 +42,9 @@ Download the right file from the [latest GitHub Release](https://github.com/Nico
 | Your computer | Download |
 | --- | --- |
 | Mac with Apple Silicon (M1 and later) | `macOS-arm64.dmg` |
-| Mac with Intel processor | `macOS-x64.dmg` |
 | Windows | `Windows-x64.zip` |
+
+Macs with an Intel processor are no longer supported: [v0.4.3](https://github.com/NicoPietrusco/HicPicNunc/releases/tag/v0.4.3) is the last release with an Intel build (`macOS-x64.dmg`).
 
 ### Check Your Download
 
@@ -138,7 +139,7 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 
 1. After each merge, release-please opens or updates a release PR titled `chore(main): release X.Y.Z`. It bumps `version` in `pyproject.toml` and `uv.lock` and adds the new `feat:` and `fix:` changes to `CHANGELOG.md`. A `feat:` bumps the minor version and a `fix:` the patch version.
 2. Merging the release PR creates the `vX.Y.Z` tag and the GitHub release.
-3. The same run builds the Apple Silicon macOS, Intel macOS, and Windows apps, smoke-tests them, and attaches them to the release.
+3. The same run builds the Apple Silicon macOS and Windows apps, smoke-tests them, and attaches them to the release.
 
 To build the apps without publishing them, or to attach them again to an existing release, run the **Release desktop apps** workflow by hand.
 
