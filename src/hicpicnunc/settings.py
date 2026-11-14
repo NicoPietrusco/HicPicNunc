@@ -114,24 +114,52 @@ class Settings:
         return Path(__file__).parent.parent.parent
 
     @property
+    def _data_dir_override(self) -> str | None:
+        # GPHOTOMETASYNC_DATA_DIR predates the rename and is still accepted.
+        return os.environ.get("HICPICNUNC_DATA_DIR") or os.environ.get("GPHOTOMETASYNC_DATA_DIR")
+
+    def _default_data_dirs(self) -> tuple[Path, Path]:
+        """This platform's data folder for desktop builds, and its name before the rename."""
+        home = Path.home()
+        if sys.platform == "darwin":
+            base = home / "Library" / "Application Support"
+            return base / "HicPicNunc", base / "GPhotoMetaSync"
+        if sys.platform == "win32":
+            base = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
+            return base / "HicPicNunc", base / "GPhotoMetaSync"
+        base = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share"))
+        return base / "hicpicnunc", base / "gphotometasync"
+
+    @property
     def app_data_dir(self) -> Path:
         """Writable data directory; separate from a frozen app bundle."""
-        # Folder names below predate the rename: kept so existing users keep their data.
-        override = os.environ.get("HICPICNUNC_DATA_DIR") or os.environ.get(
-            "GPHOTOMETASYNC_DATA_DIR"
-        )
+        override = self._data_dir_override
         if override:
             return Path(override).expanduser()
         if not getattr(sys, "frozen", False):
             return self.resource_dir
-        home = Path.home()
-        if sys.platform == "darwin":
-            return home / "Library" / "Application Support" / "GPhotoMetaSync"
-        if sys.platform == "win32":
-            return (
-                Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local")) / "GPhotoMetaSync"
-            )
-        return Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / "gphotometasync"
+        current, legacy = self._default_data_dirs()
+        # Until migrate_legacy_data_dir() manages to move it, keep using the old folder.
+        if legacy.is_dir() and not current.exists():
+            return legacy
+        return current
+
+    def migrate_legacy_data_dir(self) -> Path | None:
+        """
+        Rename a desktop build's pre-rename data folder to the new name.
+
+        Returns the new folder when it moved, or None when there was nothing to move: no
+        old folder, the new one already exists, an override is set, or running from source.
+        Raises OSError when the rename fails (on Windows, for example, while another copy of
+        the app holds files open); app_data_dir then keeps pointing at the old folder.
+        """
+        if self._data_dir_override or not getattr(sys, "frozen", False):
+            return None
+        current, legacy = self._default_data_dirs()
+        if current.exists() or not legacy.is_dir():
+            return None
+        legacy.rename(current)  # atomic on the same volume: never a half-copied folder
+        return current
 
     @property
     def data_dir(self) -> Path:

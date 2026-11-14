@@ -81,7 +81,7 @@ xattr -dr com.apple.quarantine "/Applications/Hic Pic Nunc.app"
 2. Open the extracted folder and run `Hic Pic Nunc.exe`.
 3. The app is currently unsigned, so SmartScreen may show "Windows protected your PC". Choose **More info**, then **Run anyway**.
 
-If the app doesn't start, its log is in `%LOCALAPPDATA%\GPhotoMetaSync\logs\hicpicnunc.log` (on macOS: `~/Library/Application Support/GPhotoMetaSync/logs/`).
+If the app doesn't start, its log is in `%LOCALAPPDATA%\HicPicNunc\logs\hicpicnunc.log` (on macOS: `~/Library/Application Support/HicPicNunc/logs/`).
 
 ## Google Photos And Privacy
 

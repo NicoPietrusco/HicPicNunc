@@ -16,6 +16,7 @@ def frozen(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """Simulate a PyInstaller bundle with a temp home directory."""
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.delenv("HICPICNUNC_DATA_DIR", raising=False)
+    monkeypatch.delenv("GPHOTOMETASYNC_DATA_DIR", raising=False)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     return tmp_path
 
@@ -35,28 +36,103 @@ def test_source_checkout_writes_next_to_the_sources(monkeypatch: pytest.MonkeyPa
     assert (settings.resource_dir / "pyproject.toml").is_file()
 
 
-def test_frozen_macos_uses_application_support(
-    frozen: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(sys, "platform", "darwin")
+# (platform, data folder, folder before the rename), relative to the fake home
+PLATFORM_DATA_DIRS = [
+    pytest.param(
+        (
+            "darwin",
+            "Library/Application Support/HicPicNunc",
+            "Library/Application Support/GPhotoMetaSync",
+        ),
+        id="macos",
+    ),
+    pytest.param(("win32", "Local/HicPicNunc", "Local/GPhotoMetaSync"), id="windows"),
+    pytest.param(("linux", "xdg/hicpicnunc", "xdg/gphotometasync"), id="linux"),
+]
 
-    assert settings.app_data_dir == frozen / "Library" / "Application Support" / "GPhotoMetaSync"
 
-
-def test_frozen_windows_uses_local_app_data(frozen: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "platform", "win32")
+@pytest.fixture(params=PLATFORM_DATA_DIRS)
+def platform_dirs(
+    request: pytest.FixtureRequest, frozen: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path]:
+    """Simulate each desktop platform; returns its (new, pre-rename) data folders."""
+    platform, current, legacy = request.param
+    monkeypatch.setattr(sys, "platform", platform)
     monkeypatch.setenv("LOCALAPPDATA", str(frozen / "Local"))
-
-    assert settings.app_data_dir == frozen / "Local" / "GPhotoMetaSync"
-
-
-def test_frozen_linux_uses_xdg_data_home(frozen: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("XDG_DATA_HOME", str(frozen / "xdg"))
+    return frozen / current, frozen / legacy
 
-    assert (
-        settings.app_data_dir == frozen / "xdg" / "gphotometasync"
-    )  # pre-rename folder, kept for existing users
+
+def test_a_fresh_install_uses_the_new_folder(platform_dirs: tuple[Path, Path]) -> None:
+    current, legacy = platform_dirs
+
+    assert settings.migrate_legacy_data_dir() is None
+    assert settings.app_data_dir == current
+    assert not legacy.exists()
+
+
+def test_the_pre_rename_folder_is_moved_with_its_contents(
+    platform_dirs: tuple[Path, Path],
+) -> None:
+    current, legacy = platform_dirs
+    token = legacy / "credentials" / "google_token.json"
+    token.parent.mkdir(parents=True)
+    token.write_text('{"token": "kept"}')
+
+    assert settings.app_data_dir == legacy  # until it is moved
+    assert settings.migrate_legacy_data_dir() == current
+
+    assert settings.app_data_dir == current
+    assert settings.google_token_path.read_text() == '{"token": "kept"}'
+    assert not legacy.exists()
+    assert settings.migrate_legacy_data_dir() is None  # only once
+
+
+def test_a_failed_rename_keeps_using_the_old_folder(
+    platform_dirs: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    current, legacy = platform_dirs
+    legacy.mkdir(parents=True)
+
+    def locked(self: Path, target: Path) -> Path:
+        raise PermissionError("in use by another process")
+
+    monkeypatch.setattr(Path, "rename", locked)
+
+    with pytest.raises(PermissionError):
+        settings.migrate_legacy_data_dir()
+    assert settings.app_data_dir == legacy
+    assert not current.exists()
+
+
+def test_with_both_folders_the_old_one_is_left_alone(platform_dirs: tuple[Path, Path]) -> None:
+    current, legacy = platform_dirs
+    current.mkdir(parents=True)
+    (legacy / "logs").mkdir(parents=True)
+
+    assert settings.migrate_legacy_data_dir() is None
+    assert settings.app_data_dir == current
+    assert (legacy / "logs").is_dir()
+    assert not (current / "logs").exists()
+
+
+def test_an_override_is_never_migrated(
+    platform_dirs: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _, legacy = platform_dirs
+    legacy.mkdir(parents=True)
+    monkeypatch.setenv("HICPICNUNC_DATA_DIR", str(tmp_path / "custom"))
+
+    assert settings.migrate_legacy_data_dir() is None
+    assert legacy.is_dir()
+
+
+def test_running_from_source_is_never_migrated(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HICPICNUNC_DATA_DIR", raising=False)
+    monkeypatch.delenv("GPHOTOMETASYNC_DATA_DIR", raising=False)
+    monkeypatch.setattr(sys, "frozen", False, raising=False)
+
+    assert settings.migrate_legacy_data_dir() is None
 
 
 def test_secret_key_from_environment_wins(monkeypatch: pytest.MonkeyPatch) -> None:
