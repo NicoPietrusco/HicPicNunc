@@ -15,6 +15,8 @@
   "settings.gps_location_help": "Coordinates and altitude, when present. Google Photos downloads never include them.",
   "settings.json_sidecar": "JSON sidecar",
   "settings.json_sidecar_help": "Create a readable metadata file next to each image.",
+  "settings.sort_by_date": "Sort into year/month folders",
+  "settings.sort_by_date_help": "Put each file in YYYY/MM using its capture date. Files without a date stay at the top.",
   "settings.reset": "Reset",
   "settings.save": "Save",
   "footer.back_home": "← Back to home",

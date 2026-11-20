@@ -15,6 +15,8 @@
   "settings.gps_location_help": "Coordinate e altitudine, se presenti. Le foto scaricate da Google Foto non le contengono mai.",
   "settings.json_sidecar": "File JSON di accompagnamento",
   "settings.json_sidecar_help": "Crea accanto a ogni immagine un file leggibile con i metadati.",
+  "settings.sort_by_date": "Ordina in cartelle anno/mese",
+  "settings.sort_by_date_help": "Mette ogni file in AAAA/MM in base alla data di scatto. I file senza data restano in cima.",
   "settings.reset": "Reimposta",
   "settings.save": "Salva",
   "footer.back_home": "← Torna alla home",

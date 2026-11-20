@@ -19,7 +19,7 @@ from pathlib import Path
 
 from ..log import get_logger
 from ..settings import settings
-from .filenames import is_safe_filename
+from .filenames import is_safe_filename, unique_name
 
 logger = get_logger(__name__)
 
@@ -53,6 +53,28 @@ def set_file_date(path: Path, rfc3339: str | None) -> bool:
         logger.warning("Could not set file date of {} from {!r}: {}", path.name, rfc3339, e)
         return False
     return True
+
+
+def move_to_date_folder(job_dir: Path, file: Path, sidecar: Path | None = None) -> Path:
+    """
+    Move file (and its JSON sidecar) into job_dir/YYYY/MM, by the file's modification time.
+
+    Call it once the file's date is its capture date. A name already taken in that folder
+    gets " (2)", " (3)"...; the sidecar follows the file's final name. Returns the new path
+    of file, or file itself when its date can't be read.
+    """
+    try:
+        taken = datetime.fromtimestamp(file.stat().st_mtime)
+    except (OSError, OverflowError, ValueError) as e:
+        logger.warning("Could not read the date of {}: {}", file.name, e)
+        return file
+    folder = job_dir / f"{taken:%Y}" / f"{taken:%m}"
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / unique_name(folder, file.name)
+    file.replace(target)
+    if sidecar is not None and sidecar.is_file():
+        sidecar.replace(folder / f"{target.name}.json")
+    return target
 
 
 def new_job() -> tuple[str, Path]:

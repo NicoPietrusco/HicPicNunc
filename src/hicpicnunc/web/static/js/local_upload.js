@@ -7,6 +7,8 @@
   const fileLabelText = document.getElementById("local-file-label-text");
   const includeJson = document.getElementById("metadata-include-json");
   const includeJsonField = document.getElementById("local-include-json-field");
+  const sortByDate = document.getElementById("metadata-sort-by-date");
+  const sortByDateField = document.getElementById("local-sort-by-date-field");
   const stemField = document.getElementById("local-stem-suffix");
   const localPreview = document.getElementById("local-preview");
   const localPreviewCount = document.getElementById("local-preview-count");
@@ -35,9 +37,15 @@
     if (includeJsonField) includeJsonField.value = includeJson && includeJson.checked ? "1" : "0";
   }
 
+  function syncSortField() {
+    if (sortByDateField) sortByDateField.value = sortByDate && sortByDate.checked ? "1" : "0";
+  }
+
+  if (sortByDate) sortByDate.addEventListener("change", syncSortField);
   if (includeJson) {
     includeJson.addEventListener("change", () => {
       syncJsonField();
+  syncSortField();
       updateLocalPreview();
     });
   }
@@ -197,6 +205,7 @@
     chunk.tooLarge.forEach((file) => data.append("too_large", file.webkitRelativePath || file.name));
     data.append("stem_suffix", stemField ? stemField.value : "");
     data.append("include_json", includeJsonField ? includeJsonField.value : "1");
+    data.append("sort_by_date", sortByDateField ? sortByDateField.value : "0");
     data.append("offset", String(chunk.offset));
     if (jobId) data.append("job_id", jobId);
     const r = await fetch(form.action, {

@@ -37,6 +37,7 @@ def test_groups_and_always_kept_tags_come_from_yaml(
     assert save_metadata_preferences({"lens": False, "gps_location": True}, prefs_path) == {
         "lens": False,
         "include_json": False,
+        "sort_by_date": False,
     }
     assert load_user_exif_field_config(prefs_path).tags == ["Exif:DateTimeOriginal"]
 
@@ -46,7 +47,12 @@ def test_saving_keeps_only_known_boolean_preferences(tmp_path: Path) -> None:
         {"camera_details": False, "gps_location": "no", "unknown": True}, tmp_path / "p.json"
     )
 
-    assert saved == {"camera_details": False, "gps_location": True, "include_json": False}
+    assert saved == {
+        "camera_details": False,
+        "gps_location": True,
+        "include_json": False,
+        "sort_by_date": False,
+    }
 
 
 def test_corrupt_preferences_file_falls_back_to_defaults(tmp_path: Path) -> None:

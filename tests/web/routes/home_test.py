@@ -31,7 +31,12 @@ def test_preferences_are_saved_to_disk(client, data_dir) -> None:
 
     assert resp.get_json() == {
         "ok": True,
-        "preferences": {"camera_details": False, "gps_location": True, "include_json": False},
+        "preferences": {
+            "camera_details": False,
+            "gps_location": True,
+            "include_json": False,
+            "sort_by_date": False,
+        },
     }
     saved = json.loads((data_dir / "settings" / "metadata_preferences.json").read_text())
     assert saved["camera_details"] is False
