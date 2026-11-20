@@ -25,6 +25,7 @@ from ...core.jobs import (
     iter_job_zip,
     list_job_files,
     load_failures,
+    move_to_date_folder,
     new_job,
     record_failures,
     resolve_job_file,
@@ -87,6 +88,7 @@ def upload():
 
     stem_suffix = parse_stem_suffix(request.form.get("stem_suffix"))
     include_json = parse_bool(request.form.get("include_json"))
+    sort_by_date = parse_bool(request.form.get("sort_by_date"), default=False)
 
     rows: list[tuple] = []
     form_rels = request.form.getlist("relative_paths")
@@ -124,7 +126,8 @@ def upload():
     ]
     out_payload: list[dict[str, str | None]] = []
     for i, (f, name, safe_rel) in enumerate(rows, start=int(offset)):
-        out_subdir = job_out / Path(safe_rel).parent
+        # Sorted exports ignore the source folders: the date decides where a file goes.
+        out_subdir = job_out if sort_by_date else job_out / Path(safe_rel).parent
         stem = Path(name).stem
         out_name = unique_name(out_subdir, safe_filename(f"{stem}{stem_suffix}{Path(name).suffix}"))
         with staged_file(job, i, name) as dest:
@@ -144,9 +147,13 @@ def upload():
             failures.append({"name": safe_rel, "error": error})
             continue
         processed += 1
-        rel_img = Path(result["output_image"]).resolve().relative_to(job_out_res).as_posix()
-        jp = result.get("json_path")
-        rel_json = Path(jp).resolve().relative_to(job_out_res).as_posix() if jp else None
+        output_image = Path(result["output_image"])
+        json_path = Path(result["json_path"]) if result.get("json_path") else None
+        if sort_by_date and result.get("filesystem_date_set"):
+            output_image = move_to_date_folder(job_out, output_image, json_path)
+            json_path = output_image.with_name(f"{output_image.name}.json") if json_path else None
+        rel_img = output_image.resolve().relative_to(job_out_res).as_posix()
+        rel_json = json_path.resolve().relative_to(job_out_res).as_posix() if json_path else None
         out_payload.append(
             {
                 "relative_path": rel_img,

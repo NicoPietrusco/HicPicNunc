@@ -170,6 +170,30 @@ def test_chunks_are_added_to_the_same_job(signed_in_client, monkeypatch, make_jp
     ]
 
 
+def test_batch_sorted_by_date_uses_exif_then_create_time(
+    signed_in_client, monkeypatch, make_jpeg
+) -> None:
+    dated = make_jpeg(
+        "d.jpg", {"Exif": {piexif.ExifIFD.DateTimeOriginal: b"2023:05:17 10:00:00"}}
+    ).read_bytes()
+    plain = make_jpeg("p.jpg").read_bytes()
+    photos = iter([dated, plain, plain])
+    monkeypatch.setattr(picker, "download_media_bytes", lambda url, token: next(photos))
+    items = [
+        {"base_url": GOOGLE_URL, "filename": "IMG_1.jpg"},
+        {"base_url": GOOGLE_URL, "filename": "IMG_2.jpg", "create_time": "2021-02-03T12:00:00Z"},
+        {"base_url": GOOGLE_URL, "filename": "IMG_3.jpg"},
+    ]
+
+    body = signed_in_client.post(
+        "/api/process-google-batch",
+        json={"items": items, "include_json": False, "sort_by_date": True},
+    ).get_json()
+
+    assert body["processed"] == 3
+    assert _job_files(body["job_id"]) == ["2021/02/IMG_2.jpg", "2023/05/IMG_1.jpg", "IMG_3.jpg"]
+
+
 def test_exports_keep_the_google_photos_names(signed_in_client, monkeypatch, make_jpeg) -> None:
     photo = make_jpeg().read_bytes()
     monkeypatch.setattr(picker, "download_media_bytes", lambda url, token: photo)

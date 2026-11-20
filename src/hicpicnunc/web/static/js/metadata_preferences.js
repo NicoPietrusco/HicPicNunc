@@ -3,11 +3,12 @@
   const cameraDetails = document.getElementById("metadata-camera-details");
   const gpsLocation = document.getElementById("metadata-gps-location");
   const includeJson = document.getElementById("metadata-include-json");
+  const sortByDate = document.getElementById("metadata-sort-by-date");
   const saveButton = document.getElementById("metadata-save-preferences");
   const resetButton = document.getElementById("metadata-reset-defaults");
   const status = document.getElementById("metadata-preferences-status");
 
-  if (!cameraDetails || !gpsLocation || !includeJson || !saveButton || !resetButton || !status) return;
+  if (!cameraDetails || !gpsLocation || !includeJson || !sortByDate || !saveButton || !resetButton || !status) return;
 
   async function savePreferences() {
     saveButton.disabled = true;
@@ -23,6 +24,7 @@
             camera_details: cameraDetails.checked,
             gps_location: gpsLocation.checked,
             include_json: includeJson.checked,
+            sort_by_date: sortByDate.checked,
           },
         }),
       });
@@ -44,6 +46,7 @@
     cameraDetails.checked = true;
     gpsLocation.checked = true;
     includeJson.checked = false;
+    sortByDate.checked = false;
     savePreferences();
   });
 })();

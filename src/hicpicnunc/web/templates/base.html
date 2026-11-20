@@ -75,6 +75,13 @@
                   <small>{{ t('settings.json_sidecar_help') }}</small>
                 </span>
               </label>
+              <label class="metadata-preference">
+                <input type="checkbox" id="metadata-sort-by-date" {% if metadata_preferences.sort_by_date %}checked{% endif %}>
+                <span class="metadata-preference-copy">
+                  <strong>{{ t('settings.sort_by_date') }}</strong>
+                  <small>{{ t('settings.sort_by_date_help') }}</small>
+                </span>
+              </label>
             </div>
             <div class="metadata-preferences-actions">
               <span id="metadata-preferences-status" class="metadata-preferences-status" role="status" aria-live="polite"></span>

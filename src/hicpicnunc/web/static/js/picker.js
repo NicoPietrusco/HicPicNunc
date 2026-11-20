@@ -147,7 +147,7 @@ const EXPORT_CHUNK_SIZE = 3;
 const EXPORT_PARALLEL_REQUESTS = 3;
 
 /** POST one chunk. A 500 that still names the job means only this chunk's items failed. */
-async function exportChunk(chunk, jobId, includeJson) {
+async function exportChunk(chunk, jobId, includeJson, sortByDate) {
     const r = await fetch('/api/process-google-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -156,6 +156,7 @@ async function exportChunk(chunk, jobId, includeJson) {
             offset: chunk.offset,
             job_id: jobId,
             include_json: includeJson,
+            sort_by_date: sortByDate,
         }),
     });
     const data = await r.json().catch(() => ({}));
@@ -177,6 +178,8 @@ async function extractAllExif() {
     const pickerBtn = document.getElementById('picker-btn');
     const includeJsonInput = document.getElementById('metadata-include-json');
     const includeJson = !includeJsonInput || includeJsonInput.checked;
+    const sortByDateInput = document.getElementById('metadata-sort-by-date');
+    const sortByDate = !!sortByDateInput && sortByDateInput.checked;
     const items = loadedPickerItems.slice();
     const total = items.length;
     const chunks = [];
@@ -206,14 +209,14 @@ async function extractAllExif() {
     try {
         // The first chunk creates the job; the others add to it.
         const first = chunks.shift();
-        const firstResult = await exportChunk(first, null, includeJson);
+        const firstResult = await exportChunk(first, null, includeJson, sortByDate);
         jobId = firstResult.job_id;
         record(firstResult, first);
         const worker = async () => {
             while (chunks.length && !aborted) {
                 const chunk = chunks.shift();
                 try {
-                    record(await exportChunk(chunk, jobId, includeJson), chunk);
+                    record(await exportChunk(chunk, jobId, includeJson, sortByDate), chunk);
                 } catch (e) {
                     aborted = true; // stop the other workers from sending more chunks
                     throw e;

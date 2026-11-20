@@ -19,6 +19,7 @@ from hicpicnunc.core.jobs import (
     iter_job_zip,
     list_job_files,
     load_failures,
+    move_to_date_folder,
     new_job,
     prune_expired_jobs,
     record_failures,
@@ -229,3 +230,33 @@ def test_set_file_date_ignores_missing_or_invalid_values(tmp_path: Path, value) 
 )
 def test_is_video_file(name: str, expected: bool) -> None:
     assert is_video_file(Path(name)) is expected
+
+
+def _dated_file(directory: Path, name: str, when: datetime) -> Path:
+    path = directory / name
+    path.write_bytes(b"x")
+    os.utime(path, (when.timestamp(), when.timestamp()))
+    return path
+
+
+def test_move_to_date_folder_uses_the_capture_date(tmp_path: Path) -> None:
+    photo = _dated_file(tmp_path, "IMG_1234.jpg", datetime(2023, 5, 17, 12, 0))
+    sidecar = tmp_path / "IMG_1234.jpg.json"
+    sidecar.write_text("{}")
+
+    moved = move_to_date_folder(tmp_path, photo, sidecar)
+
+    assert moved == tmp_path / "2023" / "05" / "IMG_1234.jpg"
+    assert list_job_files(tmp_path) == ["2023/05/IMG_1234.jpg", "2023/05/IMG_1234.jpg.json"]
+
+
+def test_move_to_date_folder_resolves_duplicates_per_folder(tmp_path: Path) -> None:
+    first = _dated_file(tmp_path, "a.jpg", datetime(2023, 5, 1, 12, 0))
+    move_to_date_folder(tmp_path, first)
+    second = _dated_file(tmp_path, "a.jpg", datetime(2023, 5, 2, 12, 0))
+    renamed = move_to_date_folder(tmp_path, second)
+    third = _dated_file(tmp_path, "a.jpg", datetime(2023, 6, 2, 12, 0))
+    other_month = move_to_date_folder(tmp_path, third)
+
+    assert renamed.name == "a (2).jpg"
+    assert other_month == tmp_path / "2023" / "06" / "a.jpg"  # no clash in another month

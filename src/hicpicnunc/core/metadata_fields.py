@@ -68,8 +68,12 @@ def load_field_catalog() -> MetadataFieldCatalog:
 
 
 def default_metadata_preferences() -> dict[str, bool]:
-    """Every group from the catalog is on by default; the JSON sidecar is off."""
-    return {**dict.fromkeys(load_field_catalog().groups, True), "include_json": False}
+    """Every group from the catalog is on by default; the JSON sidecar and date folders are off."""
+    return {
+        **dict.fromkeys(load_field_catalog().groups, True),
+        "include_json": False,
+        "sort_by_date": False,
+    }
 
 
 def load_metadata_preferences(path: Path | None = None) -> dict[str, bool]:

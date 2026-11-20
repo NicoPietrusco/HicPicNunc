@@ -31,6 +31,68 @@ def test_upload_returns_download_links(client, make_jpeg) -> None:
     assert client.get(body["files"][0]["image_url"]).status_code == 200
 
 
+def _dated_jpeg(make_jpeg, name: str, taken: bytes) -> bytes:
+    return make_jpeg(name, {"Exif": {piexif.ExifIFD.DateTimeOriginal: taken}}).read_bytes()
+
+
+def test_upload_sorted_by_date_goes_into_year_month_folders(client, make_jpeg) -> None:
+    may = _dated_jpeg(make_jpeg, "IMG_1234.jpg", b"2023:05:17 10:00:00")
+    june = _dated_jpeg(make_jpeg, "IMG_1234.jpg", b"2023:06:01 10:00:00")
+    undated = make_jpeg("plain.jpg").read_bytes()
+
+    body = _upload(
+        client,
+        [
+            (may, "IMG_1234.jpg"),
+            (may, "IMG_1234.jpg"),
+            (june, "IMG_1234.jpg"),
+            (undated, "plain.jpg"),
+        ],
+        relative_paths=["a/IMG_1234.jpg", "b/IMG_1234.jpg", "IMG_1234.jpg", "plain.jpg"],
+        sort_by_date="1",
+        include_json="1",
+    ).get_json()
+
+    paths = sorted(f["relative_path"] for f in body["files"])
+    assert paths == [
+        "2023/05/IMG_1234 (2).jpg",
+        "2023/05/IMG_1234.jpg",
+        "2023/06/IMG_1234.jpg",
+        "plain.jpg",
+    ]
+    sidecars = sorted(f["json_relative_path"] for f in body["files"])
+    assert "2023/05/IMG_1234 (2).jpg.json" in sidecars
+    for f in body["files"]:
+        assert client.get(f["image_url"]).status_code == 200
+        assert client.get(f["json_url"]).status_code == 200
+
+
+def test_upload_is_flat_without_sorting(client, make_jpeg) -> None:
+    may = _dated_jpeg(make_jpeg, "IMG_1234.jpg", b"2023:05:17 10:00:00")
+
+    body = _upload(client, [(may, "IMG_1234.jpg")], include_json="false").get_json()
+
+    assert [f["relative_path"] for f in body["files"]] == ["IMG_1234.jpg"]
+
+
+def test_sorted_files_cannot_be_reached_with_traversal(client, make_jpeg) -> None:
+    may = _dated_jpeg(make_jpeg, "IMG_1.jpg", b"2023:05:17 10:00:00")
+    body = _upload(client, [(may, "IMG_1.jpg")], sort_by_date="1", include_json="0").get_json()
+
+    assert client.get(f"/files/{body['job_id']}/2023/05/IMG_1.jpg").status_code == 200
+    assert client.get(f"/files/{body['job_id']}/2023/../../x.jpg").status_code == 404
+    assert client.get(f"/files/{body['job_id']}/%2e%2e/2023/05/IMG_1.jpg").status_code == 404
+
+
+def test_sorted_zip_contains_the_folders(client, make_jpeg) -> None:
+    may = _dated_jpeg(make_jpeg, "IMG_1234.jpg", b"2023:05:17 10:00:00")
+    body = _upload(client, [(may, "IMG_1234.jpg")], sort_by_date="1", include_json="0").get_json()
+
+    archive = zipfile.ZipFile(io.BytesIO(client.get(f"/job/{body['job_id']}/download-all").data))
+
+    assert archive.namelist() == ["2023/05/IMG_1234.jpg"]
+
+
 def test_folder_upload_keeps_the_folder_structure(client, make_jpeg) -> None:
     src = make_jpeg().read_bytes()
 

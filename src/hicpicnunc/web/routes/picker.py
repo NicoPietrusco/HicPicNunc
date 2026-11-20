@@ -17,6 +17,7 @@ from ...core.jobs import (
     get_job_dir,
     is_image_file,
     is_video_file,
+    move_to_date_folder,
     new_job,
     set_file_date,
     staged_file,
@@ -168,6 +169,7 @@ def _export_photo(
     field_config: ExifFieldConfig,
     include_json: bool,
     create_time: str | None,
+    sort_by_date: bool = False,
 ) -> str | None:
     """Download a photo and write the filtered-EXIF copy. Returns an error message or None."""
     try:
@@ -192,9 +194,13 @@ def _export_photo(
         )
     if result.get("error"):
         return result["error"]
-    if not result.get("filesystem_date_set"):
+    dated = bool(result.get("filesystem_date_set"))
+    if not dated:
         # No EXIF capture date (screenshots, messaging apps): fall back to Google's date.
-        set_file_date(Path(result["output_image"]), create_time)
+        dated = set_file_date(Path(result["output_image"]), create_time)
+    if sort_by_date and dated:
+        json_path = Path(result["json_path"]) if result.get("json_path") else None
+        move_to_date_folder(job_out, Path(result["output_image"]), json_path)
     return None
 
 
@@ -205,6 +211,7 @@ def _export_video(
     access_token: str,
     job_out: Path,
     create_time: str | None,
+    sort_by_date: bool = False,
 ) -> str | None:
     """Download a video unchanged, dated with Google's createTime. Returns an error or None."""
     status = item.get("processing_status")
@@ -227,7 +234,8 @@ def _export_video(
         if isinstance(e, MediaUrlExpiredError):
             raise
         return str(e)
-    set_file_date(output, create_time)
+    if set_file_date(output, create_time) and sort_by_date:
+        move_to_date_folder(job_out, output)
     return None
 
 
@@ -243,10 +251,13 @@ def _export_item(
     field_config: ExifFieldConfig,
     include_json: bool,
     create_time: str | None,
+    sort_by_date: bool = False,
 ) -> str | None:
     """Export one picked photo or video from base_url. Returns an error message or None."""
     if is_video(item.get("type"), item.get("mime_type")):
-        return _export_video(item, filename, base_url, access_token, job_out, create_time)
+        return _export_video(
+            item, filename, base_url, access_token, job_out, create_time, sort_by_date
+        )
     return _export_photo(
         index,
         filename,
@@ -257,6 +268,7 @@ def _export_item(
         field_config,
         include_json,
         create_time,
+        sort_by_date,
     )
 
 
@@ -352,6 +364,7 @@ def process_batch():
     creds, pdata = pair
     body = request.get_json(silent=True) or {}
     include_json = parse_bool(body.get("include_json"))
+    sort_by_date = parse_bool(body.get("sort_by_date"), default=False)
     items = body.get("items")
     if not isinstance(items, list) or not items:
         return jsonify({"detail": "items must be a non-empty list"}), 400
@@ -409,6 +422,7 @@ def process_batch():
             field_config=field_config,
             include_json=include_json,
             create_time=create_time,
+            sort_by_date=sort_by_date,
         )
         try:
             error = _export_with_fresh_url(export, base_url, item_id, creds, pdata)
