@@ -16,7 +16,6 @@
   "settings.json_sidecar": "JSON sidecar",
   "settings.json_sidecar_help": "Create a readable metadata file next to each image.",
   "settings.reset": "Reset",
-  "settings.save": "Save",
   "footer.back_home": "← Back to home",
   "footer.privacy": "Privacy policy",
 

@@ -16,7 +16,6 @@
   "settings.json_sidecar": "File JSON di accompagnamento",
   "settings.json_sidecar_help": "Crea accanto a ogni immagine un file leggibile con i metadati.",
   "settings.reset": "Reimposta",
-  "settings.save": "Salva",
   "footer.back_home": "← Torna alla home",
   "footer.privacy": "Informativa sulla privacy",
 
