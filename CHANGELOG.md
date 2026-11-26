@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.5.0...v0.6.0) (2026-11-26)
+
+
+### Features
+
+* close the settings popover on outside click and save each change ([#122](https://github.com/NicoPietrusco/HicPicNunc/issues/122)) ([e8e6956](https://github.com/NicoPietrusco/HicPicNunc/commit/e8e6956c6bb0e7486c83a97deaeb4d8f37e9cb2f)), closes [#13](https://github.com/NicoPietrusco/HicPicNunc/issues/13)
+
 ## [0.5.0](https://github.com/NicoPietrusco/HicPicNunc/compare/v0.4.3...v0.5.0) (2026-11-14)
 
 
